@@ -46,13 +46,17 @@
 .editor-container {
     display: grid;
     grid-template-columns: 240px 1fr 280px;
-    min-height: calc(100vh - 60px);
+    height: calc(100vh - 60px);
+    min-height: 0;
+    overflow: hidden;
 }
 
 .sidebar {
     background: var(--white);
     border-right: 1px solid var(--border);
     padding: 20px;
+    overflow-y: auto;
+    min-height: 0;
 }
 
 .sidebar h3 {
@@ -103,6 +107,7 @@
     padding: 30px;
     overflow-y: auto;
     background: var(--bg);
+    min-height: 0;
 }
 
 .description-section {
@@ -316,6 +321,7 @@
     border-left: 1px solid var(--border);
     padding: 20px;
     overflow-y: auto;
+    min-height: 0;
 }
 
 .property-panel h3 {
