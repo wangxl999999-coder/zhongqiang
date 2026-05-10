@@ -3,14 +3,14 @@ return [
     'db' => [
         'host' => '127.0.0.1',
         'port' => 3306,
-        'database' => 'wenjuan_system',
+        'database' => 'wenjuan',
         'username' => 'root',
-        'password' => '',
+        'password' => '123123',
         'charset' => 'utf8mb4',
     ],
     'app' => [
         'name' => '问卷系统',
-        'url' => 'http://localhost/wenjuan',
+        'url' => 'http://biaozhu.com',
         'upload_dir' => __DIR__ . '/../uploads/',
         'upload_url' => '/wenjuan/uploads/',
         'max_file_size' => 10 * 1024 * 1024,
