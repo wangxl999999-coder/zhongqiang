@@ -92,7 +92,6 @@ const editor = {
     
     async loadSurvey() {
         if (this.surveyId) {
-            const result = await this.request('get_survey', 'GET', null);
             const url = `${API_BASE}?action=get_survey&id=${this.surveyId}`;
             const response = await fetch(url);
             const result = await response.json();
@@ -650,7 +649,6 @@ const editor = {
     async showPublishModal() {
         await this.saveAll();
         
-        const result = await this.request('get_survey', 'GET', null);
         const url = `${API_BASE}?action=get_survey&id=${this.surveyId}`;
         const response = await fetch(url);
         const result = await response.json();
