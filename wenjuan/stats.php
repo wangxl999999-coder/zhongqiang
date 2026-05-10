@@ -9,7 +9,7 @@ $surveyId = $_GET['id'] ?? 0;
     <title>问卷统计</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/stats.css">
-    <script src="assets/js/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 </head>
 <body>
     <div id="stats-app" data-survey-id="<?php echo $surveyId; ?>">

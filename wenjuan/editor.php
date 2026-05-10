@@ -154,7 +154,7 @@ $surveyId = $_GET['id'] ?? 0;
         </div>
     </div>
     
-    <script src="assets/js/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="assets/js/editor.js"></script>
 </body>
 </html>
