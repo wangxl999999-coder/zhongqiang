@@ -433,7 +433,7 @@ $redirect = $_GET['redirect'] ?? 'index.php';
                 return;
             }
             
-            const result = await request('send_reset_code', 'POST', { phone });
+            const result = await request('send_register_code', 'POST', { phone });
             if (result.success) {
                 showMessage(result.message, 'success');
                 startCountdown(this);
@@ -524,15 +524,6 @@ $redirect = $_GET['redirect'] ?? 'index.php';
             btn.innerHTML = '<span class="loading-spinner"></span>注册中...';
             
             try {
-                let verifyResult = await request('verify_reset_code', 'POST', { phone, code });
-                
-                if (!verifyResult.success) {
-                    showMessage(verifyResult.message || '验证码错误');
-                    btn.disabled = false;
-                    btn.innerHTML = '注册';
-                    return;
-                }
-                
                 const result = await request('register', 'POST', {
                     phone,
                     password,

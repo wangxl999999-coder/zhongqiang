@@ -131,6 +131,12 @@ switch ($action) {
     case 'send_reset_code':
         sendResetCode($db, $config);
         break;
+    case 'send_register_code':
+        sendRegisterCode($db, $config);
+        break;
+    case 'verify_code':
+        verifyCode($db);
+        break;
     case 'verify_reset_code':
         verifyResetCode($db);
         break;
@@ -153,9 +159,17 @@ function registerUser($db, $config) {
         jsonResponse(['success' => false, 'message' => '密码长度至少6位']);
     }
     
+    if (empty($code)) {
+        jsonResponse(['success' => false, 'message' => '请输入验证码']);
+    }
+    
     $existing = $db->fetchOne('SELECT id FROM users WHERE phone = ?', [$phone]);
     if ($existing) {
         jsonResponse(['success' => false, 'message' => '该手机号已注册']);
+    }
+    
+    if (!verifySmsCode($db, $phone, $code, 'register')) {
+        jsonResponse(['success' => false, 'message' => '验证码错误或已过期']);
     }
     
     $userId = $db->insert('users', [
@@ -489,6 +503,72 @@ function updateUserPassword($db) {
     jsonResponse(['success' => true, 'message' => '密码修改成功']);
 }
 
+function generateSmsCode($db, $phone, $type = 'register') {
+    $code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+    $expiresAt = time() + 15 * 60;
+    
+    try {
+        $db->insert('password_reset_codes', [
+            'user_id' => 0,
+            'phone' => $phone,
+            'code' => $code,
+            'type' => $type,
+            'expires_at' => $expiresAt,
+            'used' => 0,
+            'created_at' => time()
+        ]);
+    } catch (Exception $e) {
+        $db->update('password_reset_codes', [
+            'code' => $code,
+            'expires_at' => $expiresAt,
+            'used' => 0,
+            'created_at' => time()
+        ], 'phone = :phone AND type = :type AND used = 0', ['phone' => $phone, 'type' => $type]);
+    }
+    
+    return $code;
+}
+
+function verifySmsCode($db, $phone, $code, $type = 'register') {
+    $record = $db->fetchOne(
+        'SELECT * FROM password_reset_codes 
+         WHERE phone = ? AND code = ? AND type = ? AND used = 0 AND expires_at > ?
+         ORDER BY id DESC LIMIT 1',
+        [$phone, $code, $type, time()]
+    );
+    
+    if ($record) {
+        $db->update('password_reset_codes', ['used' => 1], 'id = :id', ['id' => $record['id']]);
+        return true;
+    }
+    
+    return false;
+}
+
+function sendRegisterCode($db, $config) {
+    $input = getInput();
+    $phone = sanitizePhone($input['phone'] ?? '');
+    
+    if (empty($phone) || !validatePhone($phone)) {
+        jsonResponse(['success' => false, 'message' => '请输入正确的手机号']);
+    }
+    
+    $existing = $db->fetchOne('SELECT id FROM users WHERE phone = ?', [$phone]);
+    if ($existing) {
+        jsonResponse(['success' => false, 'message' => '该手机号已注册']);
+    }
+    
+    $code = generateSmsCode($db, $phone, 'register');
+    
+    jsonResponse([
+        'success' => true,
+        'message' => '验证码已发送（演示模式：' . $code . '）',
+        'data' => [
+            'expires_in' => 900
+        ]
+    ]);
+}
+
 function sendResetCode($db, $config) {
     $input = getInput();
     $phone = sanitizePhone($input['phone'] ?? '');
@@ -503,21 +583,48 @@ function sendResetCode($db, $config) {
         jsonResponse(['success' => false, 'message' => '该手机号未注册']);
     }
     
-    $resetToken = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
-    $expiresAt = date('Y-m-d H:i:s', time() + 15 * 60);
-    
-    $db->update('users', [
-        'reset_token' => $resetToken,
-        'reset_token_expire' => $expiresAt
-    ], 'id = :id', ['id' => $user['id']]);
+    $code = generateSmsCode($db, $phone, 'reset');
     
     jsonResponse([
         'success' => true,
-        'message' => '验证码已发送（演示模式：' . $resetToken . '）',
+        'message' => '验证码已发送（演示模式：' . $code . '）',
         'data' => [
             'expires_in' => 900
         ]
     ]);
+}
+
+function verifyCode($db) {
+    $input = getInput();
+    $phone = sanitizePhone($input['phone'] ?? '');
+    $code = $input['code'] ?? '';
+    $type = $input['type'] ?? 'register';
+    
+    if (empty($phone) || !validatePhone($phone)) {
+        jsonResponse(['success' => false, 'message' => '请输入正确的手机号']);
+    }
+    
+    if (empty($code)) {
+        jsonResponse(['success' => false, 'message' => '请输入验证码']);
+    }
+    
+    if (!in_array($type, ['register', 'reset'])) {
+        jsonResponse(['success' => false, 'message' => '无效的验证类型']);
+    }
+    
+    if (verifySmsCode($db, $phone, $code, $type)) {
+        $verifyToken = generateToken(32);
+        $_SESSION['verify_' . $type . '_' . $phone] = $verifyToken;
+        
+        jsonResponse([
+            'success' => true,
+            'data' => [
+                'verify_token' => $verifyToken
+            ]
+        ]);
+    } else {
+        jsonResponse(['success' => false, 'message' => '验证码错误或已过期']);
+    }
 }
 
 function verifyResetCode($db) {
@@ -533,27 +640,22 @@ function verifyResetCode($db) {
         jsonResponse(['success' => false, 'message' => '请输入验证码']);
     }
     
-    $user = $db->fetchOne(
-        'SELECT id FROM users WHERE phone = ? AND reset_token = ? AND reset_token_expire > NOW()',
-        [$phone, $code]
-    );
-    
-    if (!$user) {
+    if (verifySmsCode($db, $phone, $code, 'reset')) {
+        $verifyToken = generateToken(32);
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $_SESSION['verify_reset_' . $phone] = $verifyToken;
+        
+        jsonResponse([
+            'success' => true,
+            'data' => [
+                'verify_token' => $verifyToken
+            ]
+        ]);
+    } else {
         jsonResponse(['success' => false, 'message' => '验证码错误或已过期']);
     }
-    
-    $verifyToken = generateToken(32);
-    $db->update('users', [
-        'reset_token' => $verifyToken,
-        'reset_token_expire' => date('Y-m-d H:i:s', time() + 30 * 60)
-    ], 'id = :id', ['id' => $user['id']]);
-    
-    jsonResponse([
-        'success' => true,
-        'data' => [
-            'verify_token' => $verifyToken
-        ]
-    ]);
 }
 
 function resetPassword($db, $config) {
@@ -574,20 +676,26 @@ function resetPassword($db, $config) {
         jsonResponse(['success' => false, 'message' => '新密码长度至少6位']);
     }
     
-    $user = $db->fetchOne(
-        'SELECT id FROM users WHERE phone = ? AND reset_token = ? AND reset_token_expire > NOW()',
-        [$phone, $verifyToken]
-    );
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     
-    if (!$user) {
+    $sessionKey = 'verify_reset_' . $phone;
+    if (!isset($_SESSION[$sessionKey]) || $_SESSION[$sessionKey] !== $verifyToken) {
         jsonResponse(['success' => false, 'message' => '验证已过期，请重新获取验证码']);
     }
     
+    $user = $db->fetchOne('SELECT id FROM users WHERE phone = ?', [$phone]);
+    
+    if (!$user) {
+        jsonResponse(['success' => false, 'message' => '用户不存在']);
+    }
+    
     $db->update('users', [
-        'password' => password_hash($newPassword, PASSWORD_DEFAULT),
-        'reset_token' => null,
-        'reset_token_expire' => null
+        'password' => password_hash($newPassword, PASSWORD_DEFAULT)
     ], 'id = :id', ['id' => $user['id']]);
+    
+    unset($_SESSION[$sessionKey]);
     
     jsonResponse(['success' => true, 'message' => '密码重置成功']);
 }

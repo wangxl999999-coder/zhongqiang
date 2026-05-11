@@ -190,17 +190,19 @@ try {
             $pdo->exec("
                 CREATE TABLE IF NOT EXISTS password_reset_codes (
                     id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL COMMENT '用户ID',
+                    user_id INT DEFAULT 0 COMMENT '用户ID（注册时为0）',
                     phone VARCHAR(20) NOT NULL COMMENT '手机号',
                     code VARCHAR(6) NOT NULL COMMENT '验证码',
-                    expires_at INT NOT NULL COMMENT '过期时间',
+                    type VARCHAR(20) NOT NULL DEFAULT 'reset' COMMENT '类型：register注册 reset找回密码',
+                    expires_at INT NOT NULL COMMENT '过期时间（Unix时间戳）',
                     used TINYINT DEFAULT 0 COMMENT '是否已使用',
-                    created_at INT NOT NULL COMMENT '创建时间',
+                    created_at INT NOT NULL COMMENT '创建时间（Unix时间戳）',
                     INDEX idx_phone (phone),
                     INDEX idx_code (code),
+                    INDEX idx_type (type),
                     INDEX idx_expires_at (expires_at),
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='密码重置验证码表'
+                    INDEX idx_phone_type (phone, type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短信验证码表'
             ");
             $steps[] = "✓ 创建表: password_reset_codes";
             echo "<div class='success'>✓ 创建表: <code>password_reset_codes</code></div>";
@@ -208,7 +210,23 @@ try {
             echo "<div class='error'>✗ 创建表失败: " . $e->getMessage() . "</div>";
         }
     } else {
-        echo "<div class='info'>✓ 表 <code>password_reset_codes</code> 已存在</div>";
+        echo "<div class='info'>✓ 表 <code>password_reset_codes</code> 已存在，检查字段...</div>";
+        
+        $stmt = $pdo->query("SHOW COLUMNS FROM password_reset_codes");
+        $columns = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        $columns = array_map('strtolower', $columns);
+        
+        if (!in_array('type', $columns)) {
+            try {
+                $pdo->exec("ALTER TABLE password_reset_codes ADD COLUMN type VARCHAR(20) NOT NULL DEFAULT 'reset' COMMENT '类型：register注册 reset找回密码'");
+                $steps[] = "✓ 添加字段: type";
+                echo "<div class='success'>✓ 添加字段: <code>type</code></div>";
+            } catch (PDOException $e) {
+                echo "<div class='error'>✗ 添加字段 type 失败: " . $e->getMessage() . "</div>";
+            }
+        } else {
+            echo "<div class='info'>✓ 字段 <code>type</code> 已存在</div>";
+        }
     }
     
     echo "<h2>6. 创建微信登录临时表</h2>";
