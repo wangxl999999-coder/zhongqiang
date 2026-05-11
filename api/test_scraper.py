@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import json
 sys.path.insert(0, '.')
 
 from app.scraper import TaobaoScraper, SmartScraper
@@ -11,7 +12,7 @@ async def test_scraper():
     print("=" * 60)
 
     test_urls = [
-        # 你可以添加真实的淘宝/天猫链接进行测试
+        # 请在此添加真实的淘宝/天猫链接进行测试
         # 示例: "https://item.taobao.com/item.htm?id=6987654321",
         # 示例: "https://detail.tmall.com/item.htm?id=7123456789",
     ]
@@ -34,8 +35,9 @@ async def test_scraper():
         print("  5. 复制Cookie值到test_cookies变量")
         return
 
-    scraper = TaobaoScraper(cookies=test_cookies)
-    smart_scraper = SmartScraper(default_cookies=test_cookies)
+    print(f"\n📝 配置的Cookie: {'已配置' if test_cookies else '未配置'}")
+    if test_cookies:
+        print(f"   Cookie长度: {len(test_cookies)} 字符")
 
     for url in test_urls:
         print(f"\n{'='*60}")
@@ -43,32 +45,46 @@ async def test_scraper():
         print("=" * 60)
 
         print("\n--- 测试TaobaoScraper (真实数据) ---")
+        scraper = TaobaoScraper(cookies=test_cookies)
         result = await scraper.scrape(url)
-        print(f"成功: {result.get('success')}")
-        print(f"消息: {result.get('message')}")
+        
+        print(f"\n✅ 结果:")
+        print(f"  成功: {result.get('success')}")
+        print(f"  消息: {result.get('message')}")
+        
         if result.get('data'):
             data = result['data']
-            print(f"商品ID: {data.get('item_id')}")
-            title = str(data.get('title', ''))
-            print(f"标题: {title[:50]}..." if len(title) > 50 else f"标题: {title}")
-            print(f"价格: {data.get('price')}")
-            print(f"原价: {data.get('original_price')}")
-            print(f"图片数: {len(data.get('images', []))}")
+            print(f"\n📦 数据详情:")
+            print(f"  商品ID: {data.get('item_id')}")
+            print(f"  标题: {data.get('title', '空')}")
+            print(f"  价格: {data.get('price', '空')}")
+            print(f"  原价: {data.get('original_price', '空')}")
+            print(f"  图片数: {len(data.get('images', []))}")
+            print(f"  详情图数: {len(data.get('detail_images', []))}")
+            print(f"  SKU数: {len(data.get('sku', []))}")
+            
             if data.get('images'):
-                print(f"首张图: {data['images'][0][:80]}...")
-            print(f"详情图数: {len(data.get('detail_images', []))}")
-            print(f"SKU数: {len(data.get('sku', []))}")
+                print(f"  首张图: {data['images'][0][:80]}...")
+        else:
+            print(f"\n❌ 无数据返回")
 
         print("\n--- 测试SmartScraper (智能模式) ---")
+        smart_scraper = SmartScraper(default_cookies=test_cookies)
         result2 = await smart_scraper.scrape(url)
-        print(f"成功: {result2.get('success')}")
-        print(f"消息: {result2.get('message')}")
+        
+        print(f"\n✅ 结果:")
+        print(f"  成功: {result2.get('success')}")
+        print(f"  消息: {result2.get('message')}")
+        
         if result2.get('data'):
             data = result2['data']
-            print(f"商品ID: {data.get('item_id')}")
-            title = str(data.get('title', ''))
-            print(f"标题: {title[:50]}..." if len(title) > 50 else f"标题: {title}")
-            print(f"价格: {data.get('price')}")
+            print(f"\n📦 数据详情:")
+            print(f"  商品ID: {data.get('item_id')}")
+            print(f"  标题: {data.get('title', '空')}")
+            print(f"  价格: {data.get('price', '空')}")
+            print(f"  图片数: {len(data.get('images', []))}")
+        else:
+            print(f"\n❌ 无数据返回")
 
     print("\n" + "=" * 60)
     print("测试完成")
