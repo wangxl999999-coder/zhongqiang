@@ -11,6 +11,7 @@ async def test_scraper():
     print("=" * 60)
 
     test_urls = [
+        "https://item.taobao.com/item.htm?ali_refid=a3_420434_1006%3A1680024826%3AH%3A%2B%2F7ty7ghmlYQXjScmAyqtn3rV%2B48BJvG%3A79744a194112be488253d73cd34a8632&ali_trackid=282_79744a194112be488253d73cd34a8632&id=710901206600&mm_sceneid=1_0_3792568038_0&pisk=gjSEhyDvbkEFevVc3txzu256hLtp53PbYgOWETXkdBAHOTvk41f7pB6u9_SysTQQpUNKUvINg0iQ9yBo43tuGSZbc9Hp23VXQHLQuXp2evqWtpmMvLTL1RG_c9BpwvluhNqbzHEvS00kZ_xMsppJqLxo-C2wUKRkqBYosVvDsQxlZeqMSp9jt40HKV2weCAkq3flIRJysQxkq_XiNCAkGcJ2-J1ZcKNSyETei9AZ0OIwKh3dLCoo4GJ98ImX_0mlbpXJgAvK0zOckBTXi1qsY3WMU18f8SoFaTXArFSrtJ1csa5kBNFrzI7ldZI65Y0hQgReoMYZe-6cpLfkzNFqcp-C7ESFJ8hGKsOFoHBS3W6wuN8vIFDr-H_fhgLcxklv1EpP_E_UgD5c4EGJIwPN2wlozev9QIwaQyUpsKMkar4Ey4LdWdRbpJ3-yev9QIwaQ43JJnpwGJed.&skuId=6202115986280&spm=a21n57.1.hoverItem.3&utparam=%7B%22aplus_abtest%22%3A%223afb98f1e0176a64e73d50c63be10621%22%7D&xxc=ad_ztc"
         # 你可以添加真实的淘宝/天猫链接进行测试
         # "https://item.taobao.com/item.htm?id=6987654321",
         # "https://detail.tmall.com/item.htm?id=7123456789",
