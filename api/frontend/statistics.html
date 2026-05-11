@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>统计中心 - API接口平台</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>🚀 API平台</h2>
+                <p>专业数据接口服务</p>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><span class="icon">📊</span> 概览</a></li>
+                <li><a href="api-keys.html"><span class="icon">🔑</span> API密钥</a></li>
+                <li><a href="recharge.html"><span class="icon">💰</span> 充值</a></li>
+                <li><a href="promotion.html"><span class="icon">🎁</span> 推广</a></li>
+                <li><a href="api-test.html"><span class="icon">🧪</span> 接口测试</a></li>
+                <li><a href="statistics.html" class="active"><span class="icon">📈</span> 统计</a></li>
+            </ul>
+        </aside>
+        
+        <main class="main-content">
+            <div class="header">
+                <h1>统计中心</h1>
+                <div class="user-info">
+                    <span class="balance">💰 <span id="balance">0</span> 金币</span>
+                    <button class="logout-btn" onclick="logout()">退出</button>
+                </div>
+            </div>
+            
+            <div class="stats-summary">
+                <div class="stats-item">
+                    <div class="num" id="statPurchases">0</div>
+                    <div class="label">购买次数</div>
+                </div>
+                <div class="stats-item">
+                    <div class="num" id="statGoldPurchased">0</div>
+                    <div class="label">累计充值金币</div>
+                </div>
+                <div class="stats-item">
+                    <div class="num" id="statConsumed">0</div>
+                    <div class="label">累计消耗金币</div>
+                </div>
+                <div class="stats-item">
+                    <div class="num" id="statApiCalls">0</div>
+                    <div class="label">累计API调用</div>
+                </div>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('purchase')">💰 购买统计</button>
+                <button class="tab-btn" onclick="switchTab('consumption')">📉 消费统计</button>
+            </div>
+            
+            <!-- 购买统计 -->
+            <div id="tab-purchase" class="tab-content active">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>💰 购买记录</h2>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>类型</th>
+                                    <th>金额</th>
+                                    <th>余额</th>
+                                    <th>说明</th>
+                                </tr>
+                            </thead>
+                            <tbody id="purchaseList">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 30px; color: #999;">
+                                    加载中...
+                                </td>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 消费统计 -->
+            <div id="tab-consumption" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📉 消费记录</h2>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>接口</th>
+                                    <th>消耗金币</th>
+                                </tr>
+                            </thead>
+                            <tbody id="consumptionList">
+                                <tr>
+                                    <td colspan="3" style="text-align: center; padding: 30px; color: #999;">
+                                    加载中...
+                                </td>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/api.js"></script>
+    <script>
+        function logout() {
+            auth.clearSession();
+            window.location.href = 'login.html';
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-CN');
+        }
+        
+        function getTypeText(type) {
+            const typeMap = {
+                'recharge': '充值',
+                'signup_bonus': '注册赠送',
+                'referral_reward': '推广返利',
+                'api_usage': 'API消耗'
+            };
+            return typeMap[type] || type;
+        }
+        
+        async function loadData() {
+            if (!auth.requireAuth()) return;
+            
+            try {
+                const user = auth.getUser();
+                document.getElementById('balance').textContent = user.balance;
+                
+                const stats = await api.getStatistics();
+                document.getElementById('statPurchases').textContent = stats.total_purchases;
+                document.getElementById('statGoldPurchased').textContent = stats.total_gold_purchased;
+                document.getElementById('statConsumed').textContent = stats.total_consumed;
+                document.getElementById('statApiCalls').textContent = stats.total_api_calls;
+                
+                loadPurchaseList();
+                loadConsumptionList();
+            } catch (error) {
+                console.error(error);
+            }
+        }
+        
+        async function loadPurchaseList() {
+            try {
+                const purchases = await api.getPurchaseList(50);
+                
+                if (!purchases || purchases.length === 0) {
+                    document.getElementById('purchaseList').innerHTML = `
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 30px; color: #999;">
+                                暂无购买记录
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                purchases.forEach(item => {
+                    const typeClass = item.amount > 0 ? 'positive' : 'negative';
+                    html += `
+                        <tr>
+                            <td>${formatDate(item.created_at)}</td>
+                            <td>${getTypeText(item.type)}</td>
+                            <td class="${typeClass}">${item.amount > 0 ? '+' : ''}${item.amount}</td>
+                            <td>${item.balance_after}</td>
+                            <td>${item.description || '-'}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('purchaseList').innerHTML = html;
+            } catch (error) {
+                console.error(error);
+                document.getElementById('purchaseList').innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 30px; color: #999;">
+                            加载失败
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        
+        async function loadConsumptionList() {
+            try {
+                const consumptions = await api.getConsumptionList(50);
+                
+                if (!consumptions || consumptions.length === 0) {
+                    document.getElementById('consumptionList').innerHTML = `
+                        <tr>
+                            <td colspan="3" style="text-align: center; padding: 30px; color: #999;">
+                                暂无消费记录
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                consumptions.forEach(item => {
+                    html += `
+                        <tr>
+                            <td>${formatDate(item.created_at)}</td>
+                            <td>${item.endpoint}</td>
+                            <td class="negative">-${item.cost}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('consumptionList').innerHTML = html;
+            } catch (error) {
+                console.error(error);
+                document.getElementById('consumptionList').innerHTML = `
+                    <tr>
+                        <td colspan="3" style="text-align: center; padding: 30px; color: #999;">
+                            加载失败
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

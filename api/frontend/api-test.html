@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>接口测试 - API接口平台</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>🚀 API平台</h2>
+                <p>专业数据接口服务</p>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><span class="icon">📊</span> 概览</a></li>
+                <li><a href="api-keys.html"><span class="icon">🔑</span> API密钥</a></li>
+                <li><a href="recharge.html"><span class="icon">💰</span> 充值</a></li>
+                <li><a href="promotion.html"><span class="icon">🎁</span> 推广</a></li>
+                <li><a href="api-test.html" class="active"><span class="icon">🧪</span> 接口测试</a></li>
+                <li><a href="statistics.html"><span class="icon">📈</span> 统计</a></li>
+            </ul>
+        </aside>
+        
+        <main class="main-content">
+            <div class="header">
+                <h1>接口测试</h1>
+                <div class="user-info">
+                    <span class="balance">💰 <span id="balance">0</span> 金币</span>
+                    <button class="logout-btn" onclick="logout()">退出</button>
+                </div>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('test')">📡 测试连接</button>
+                <button class="tab-btn" onclick="switchTab('taobao')">🛒 淘宝详情</button>
+                <button class="tab-btn" onclick="switchTab('tmall')">🏪 天猫详情</button>
+            </div>
+            
+            <!-- 测试连接 -->
+            <div id="tab-test" class="tab-content active">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📡 测试API连接</h2>
+                    </div>
+                    <div class="test-section">
+                        <p style="margin-bottom: 15px; color: #666;">
+                            调用此接口测试您的API_KEY是否有效。<br>
+                            <strong>消耗：1金币</strong>
+                        </p>
+                        <div class="form-group">
+                            <label>您的API_KEY</label>
+                            <input type="text" id="apiKeyTest" readonly>
+                        </div>
+                        <button class="btn btn-primary" onclick="testApi()">🔍 测试接口</button>
+                    </div>
+                    
+                    <div class="test-result" id="testResult" style="display: none;">
+                        <pre id="testResultContent"></pre>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 淘宝详情 -->
+            <div id="tab-taobao" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🛒 淘宝详情采集</h2>
+                    </div>
+                    <div class="test-section">
+                        <p style="margin-bottom: 15px; color: #666;">
+                            输入淘宝商品详情页URL，采集商品信息。<br>
+                            <strong>消耗：1金币</strong>
+                        </p>
+                        <div class="form-group">
+                            <label>商品URL</label>
+                            <input type="text" id="taobaoUrl" placeholder="https://item.taobao.com/item.htm?id=...">
+                        </div>
+                        <button class="btn btn-primary" onclick="testTaobao()">🚀 开始采集</button>
+                    </div>
+                    
+                    <div class="test-result" id="taobaoResult" style="display: none;">
+                        <pre id="taobaoResultContent"></pre>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 天猫详情 -->
+            <div id="tab-tmall" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🏪 天猫详情采集</h2>
+                    </div>
+                    <div class="test-section">
+                        <p style="margin-bottom: 15px; color: #666;">
+                            输入天猫商品详情页URL，采集商品信息。<br>
+                            <strong>消耗：1金币</strong>
+                        </p>
+                        <div class="form-group">
+                            <label>商品URL</label>
+                            <input type="text" id="tmallUrl" placeholder="https://detail.tmall.com/item.htm?id=...">
+                        </div>
+                        <button class="btn btn-primary" onclick="testTmall()">🚀 开始采集</button>
+                    </div>
+                    
+                    <div class="test-result" id="tmallResult" style="display: none;">
+                        <pre id="tmallResultContent"></pre>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2>📚 接口说明</h2>
+                </div>
+                <div style="color: #666; line-height: 1.8;">
+                    <h4 style="margin-bottom: 10px; color: #333;">请求头：</h4>
+                    <pre style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-family: 'Courier New';">X-API-Key: 您的API_KEY</pre>
+                    
+                    <h4 style="margin-bottom: 10px; color: #333;">接口列表：</h4>
+                    <table style="width: 100%; margin-bottom: 20px;">
+                        <thead>
+                            <tr>
+                                <th>接口地址</th>
+                                <th>方法</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>/api/v1/test</code></td>
+                                <td>GET</td>
+                                <td>测试API连接</td>
+                            </tr>
+                            <tr>
+                                <td><code>/api/v1/taobao/detail</code></td>
+                                <td>GET</td>
+                                <td>淘宝商品详情采集</td>
+                            </tr>
+                            <tr>
+                                <td><code>/api/v1/tmall/detail</code></td>
+                                <td>GET</td>
+                                <td>天猫商品详情采集</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h4 style="margin-bottom: 10px; color: #333;">返回示例：</h4>
+                    <pre style="background: #1a1a2e; color: #00ff88; padding: 20px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 13px;">
+{
+  "success": true,
+  "message": "采集成功",
+  "data": {
+    "item_id": "123456",
+    "title": "商品标题",
+    "price": "99.00",
+    "original_price": "199.00",
+    "sku": [...],
+    "images": [...],
+    "detail_images": [...]
+  }
+}</pre>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/api.js"></script>
+    <script>
+        function logout() {
+            auth.clearSession();
+            window.location.href = 'login.html';
+        }
+        
+        async function loadData() {
+            if (!auth.requireAuth()) return;
+            
+            try {
+                const user = auth.getUser();
+                document.getElementById('balance').textContent = user.balance;
+                document.getElementById('apiKeyTest').value = user.api_key;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+        }
+        
+        function showResult(elementId, data) {
+            const resultDiv = document.getElementById(elementId);
+            const contentDiv = document.getElementById(`${elementId}Content`);
+            resultDiv.style.display = 'block';
+            contentDiv.textContent = JSON.stringify(data, null, 2);
+        }
+        
+        async function testApi() {
+            const user = auth.getUser();
+            if (!user || !user.api_key) {
+                alert('请先登录获取API_KEY');
+                return;
+            }
+            
+            try {
+                const result = await api.testApi(user.api_key);
+                showResult('testResult', result);
+                
+                if (result.data && result.data.remaining_balance !== undefined) {
+                    document.getElementById('balance').textContent = result.data.remaining_balance;
+                }
+            } catch (error) {
+                showResult('testResult', { error: error.message });
+            }
+        }
+        
+        async function testTaobao() {
+            const url = document.getElementById('taobaoUrl').value.trim();
+            if (!url) {
+                alert('请输入淘宝商品URL');
+                return;
+            }
+            
+            const user = auth.getUser();
+            if (!user || !user.api_key) {
+                alert('请先登录获取API_KEY');
+                return;
+            }
+            
+            try {
+                const result = await api.getTaobaoDetail(user.api_key, url);
+                showResult('taobaoResult', result);
+            } catch (error) {
+                showResult('taobaoResult', { error: error.message });
+            }
+        }
+        
+        async function testTmall() {
+            const url = document.getElementById('tmallUrl').value.trim();
+            if (!url) {
+                alert('请输入天猫商品URL');
+                return;
+            }
+            
+            const user = auth.getUser();
+            if (!user || !user.api_key) {
+                alert('请先登录获取API_KEY');
+                return;
+            }
+            
+            try {
+                const result = await api.getTmallDetail(user.api_key, url);
+                showResult('tmallResult', result);
+            } catch (error) {
+                showResult('tmallResult', { error: error.message });
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

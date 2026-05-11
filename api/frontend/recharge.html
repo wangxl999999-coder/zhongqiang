@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>充值 - API接口平台</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>🚀 API平台</h2>
+                <p>专业数据接口服务</p>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><span class="icon">📊</span> 概览</a></li>
+                <li><a href="api-keys.html"><span class="icon">🔑</span> API密钥</a></li>
+                <li><a href="recharge.html" class="active"><span class="icon">💰</span> 充值</a></li>
+                <li><a href="promotion.html"><span class="icon">🎁</span> 推广</a></li>
+                <li><a href="api-test.html"><span class="icon">🧪</span> 接口测试</a></li>
+                <li><a href="statistics.html"><span class="icon">📈</span> 统计</a></li>
+            </ul>
+        </aside>
+        
+        <main class="main-content">
+            <div class="header">
+                <h1>充值</h1>
+                <div class="user-info">
+                    <span class="balance">💰 <span id="balance">0</span> 金币</span>
+                    <button class="logout-btn" onclick="logout()">退出</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2>💰 选择充值金额</h2>
+                </div>
+                <p style="margin-bottom: 20px; color: #666;">充值比例：<strong>1元 = 100金币</strong></p>
+                
+                <div class="recharge-options" id="rechargeOptions">
+                    <div class="recharge-option" data-amount="10" onclick="selectAmount(this)">
+                        <div class="amount">10元</div>
+                        <div class="gold">1000金币</div>
+                    </div>
+                    <div class="recharge-option" data-amount="50" onclick="selectAmount(this)">
+                        <div class="amount">50元</div>
+                        <div class="gold">5000金币</div>
+                    </div>
+                    <div class="recharge-option active" data-amount="100" onclick="selectAmount(this)">
+                        <div class="amount">100元</div>
+                        <div class="gold">10000金币</div>
+                    </div>
+                    <div class="recharge-option" data-amount="500" onclick="selectAmount(this)">
+                        <div class="amount">500元</div>
+                        <div class="gold">50000金币</div>
+                        <div class="bonus">推荐</div>
+                    </div>
+                    <div class="recharge-option" data-amount="1000" onclick="selectAmount(this)">
+                        <div class="amount">1000元</div>
+                        <div class="gold">100000金币</div>
+                        <div class="bonus">超值</div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>或输入自定义金额（元）</label>
+                    <input type="number" id="customAmount" min="1" step="0.01" placeholder="请输入金额" onchange="handleCustomAmount()">
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <p style="color: #666; margin-bottom: 10px;">当前选择：</p>
+                    <p style="font-size: 24px; font-weight: 700; color: #667eea;">
+                        <span id="selectedAmount">100</span> 元 → <span id="selectedGold">10000</span> 金币
+                    </p>
+                    <p style="color: #999; font-size: 12px; margin-top: 10px;">
+                        ⚠️ 注意：金币有效期为充值之日起365天
+                    </p>
+                </div>
+                
+                <div id="alert"></div>
+                
+                <button class="btn btn-primary" onclick="handleRecharge()">立即充值</button>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2>📝 充值说明</h2>
+                </div>
+                <div style="color: #666; line-height: 2;">
+                    <ul style="margin-left: 20px;">
+                        <li>金币用于调用API接口，每次调用消耗1金币</li>
+                        <li>充值成功后金币立即到账</li>
+                        <li>金币自充值之日起365天内有效</li>
+                        <li>如有充值问题，请联系客服</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/api.js"></script>
+    <script>
+        let selectedAmount = 100;
+        
+        function logout() {
+            auth.clearSession();
+            window.location.href = 'login.html';
+        }
+        
+        function showAlert(message, type = 'error') {
+            const alertDiv = document.getElementById('alert');
+            alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+        
+        async function loadData() {
+            if (!auth.requireAuth()) return;
+            
+            try {
+                const user = auth.getUser();
+                document.getElementById('balance').textContent = user.balance;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+        
+        function selectAmount(element) {
+            document.querySelectorAll('.recharge-option').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            document.getElementById('customAmount').value = '';
+            
+            selectedAmount = parseFloat(element.dataset.amount);
+            updateDisplay();
+        }
+        
+        function handleCustomAmount() {
+            const customAmount = parseFloat(document.getElementById('customAmount').value);
+            if (customAmount > 0) {
+                document.querySelectorAll('.recharge-option').forEach(el => el.classList.remove('active'));
+                selectedAmount = customAmount;
+                updateDisplay();
+            }
+        }
+        
+        function updateDisplay() {
+            document.getElementById('selectedAmount').textContent = selectedAmount;
+            document.getElementById('selectedGold').textContent = Math.floor(selectedAmount * 100);
+        }
+        
+        async function handleRecharge() {
+            if (selectedAmount <= 0) {
+                showAlert('请选择或输入有效的充值金额');
+                return;
+            }
+            
+            const confirmMessage = `确认充值 ${selectedAmount} 元，获得 ${Math.floor(selectedAmount * 100)} 金币？`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            try {
+                const result = await api.recharge(selectedAmount);
+                showAlert(result.message, 'success');
+                
+                const user = auth.getUser();
+                user.balance = result.new_balance;
+                localStorage.setItem('user', JSON.stringify(user));
+                document.getElementById('balance').textContent = result.new_balance;
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } catch (error) {
+                showAlert(error.message);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API密钥 - API接口平台</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>🚀 API平台</h2>
+                <p>专业数据接口服务</p>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><span class="icon">📊</span> 概览</a></li>
+                <li><a href="api-keys.html" class="active"><span class="icon">🔑</span> API密钥</a></li>
+                <li><a href="recharge.html"><span class="icon">💰</span> 充值</a></li>
+                <li><a href="promotion.html"><span class="icon">🎁</span> 推广</a></li>
+                <li><a href="api-test.html"><span class="icon">🧪</span> 接口测试</a></li>
+                <li><a href="statistics.html"><span class="icon">📈</span> 统计</a></li>
+            </ul>
+        </aside>
+        
+        <main class="main-content">
+            <div class="header">
+                <h1>API密钥</h1>
+                <div class="user-info">
+                    <span class="balance">💰 <span id="balance">0</span> 金币</span>
+                    <button class="logout-btn" onclick="logout()">退出</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2>🔑 您的API密钥</h2>
+                </div>
+                <div class="api-key-section">
+                    <p style="margin-bottom: 15px; color: #666; font-size: 14px;">
+                        请妥善保管您的API密钥，这是您调用接口的凭证。如果密钥泄露，请立即重新生成。
+                    </p>
+                    <div class="api-key-display">
+                        <input type="text" id="apiKey" readonly placeholder="加载中...">
+                        <button class="btn btn-sm btn-outline" onclick="copyApiKey()">📋 复制</button>
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="regenerateApiKey()">🔄 重新生成</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2>📚 使用说明</h2>
+                </div>
+                <div style="color: #666; line-height: 2;">
+                    <p style="margin-bottom: 15px;">在请求头中添加 <code style="background: #f5f5f5; padding: 3px 8px; border-radius: 5px; font-family: 'Courier New';">X-API-Key</code> 即可调用接口：</p>
+                    <pre style="background: #1a1a2e; color: #00ff88; padding: 20px; border-radius: 10px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 13px;">
+curl -X GET "http://localhost:8000/api/v1/taobao/detail?url=商品链接" \
+  -H "X-API-Key: 你的API_KEY"</pre>
+                    <div style="margin-top: 20px;">
+                        <h4 style="margin-bottom: 10px; color: #333;">费用说明：</h4>
+                        <ul style="margin-left: 20px;">
+                            <li>每次API调用消耗 <strong>1</strong> 金币</li>
+                            <li>注册赠送 <strong>10</strong> 金币</li>
+                            <li>充值比例：<strong>1元 = 100金币</strong></li>
+                            <li>金币有效期：<strong>365天</strong></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/api.js"></script>
+    <script>
+        function logout() {
+            auth.clearSession();
+            window.location.href = 'login.html';
+        }
+        
+        async function loadData() {
+            if (!auth.requireAuth()) return;
+            
+            try {
+                const user = auth.getUser();
+                document.getElementById('balance').textContent = user.balance;
+                document.getElementById('apiKey').value = user.api_key;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+        
+        async function copyApiKey() {
+            const apiKey = document.getElementById('apiKey').value;
+            try {
+                await navigator.clipboard.writeText(apiKey);
+                alert('API密钥已复制到剪贴板！');
+            } catch (error) {
+                alert('复制失败，请手动复制');
+            }
+        }
+        
+        async function regenerateApiKey() {
+            if (!confirm('确定要重新生成API密钥吗？原有密钥将立即失效！')) {
+                return;
+            }
+            
+            try {
+                const result = await api.regenerateApiKey();
+                document.getElementById('apiKey').value = result.api_key;
+                
+                const user = auth.getUser();
+                user.api_key = result.api_key;
+                localStorage.setItem('user', JSON.stringify(user));
+                
+                alert('API密钥已重新生成！');
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

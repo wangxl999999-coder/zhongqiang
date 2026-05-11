@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户中心 - API接口平台</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>🚀 API平台</h2>
+                <p>专业数据接口服务</p>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html" class="active"><span class="icon">📊</span> 概览</a></li>
+                <li><a href="api-keys.html"><span class="icon">🔑</span> API密钥</a></li>
+                <li><a href="recharge.html"><span class="icon">💰</span> 充值</a></li>
+                <li><a href="promotion.html"><span class="icon">🎁</span> 推广</a></li>
+                <li><a href="api-test.html"><span class="icon">🧪</span> 接口测试</a></li>
+                <li><a href="statistics.html"><span class="icon">📈</span> 统计</a></li>
+            </ul>
+        </aside>
+        
+        <main class="main-content">
+            <div class="header">
+                <h1>概览</h1>
+                <div class="user-info">
+                    <span class="balance">💰 <span id="balance">0</span> 金币</span>
+                    <button class="logout-btn" onclick="logout()">退出</button>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>账户余额</h3>
+                    <div class="value" id="statBalance">0</div>
+                    <div class="change">💰 金币</div>
+                </div>
+                <div class="stat-card">
+                    <h3>累计充值次数</h3>
+                    <div class="value" id="statPurchases">0</div>
+                    <div class="change">次</div>
+                </div>
+                <div class="stat-card">
+                    <h3>累计充值金币</h3>
+                    <div class="value" id="statGoldPurchased">0</div>
+                    <div class="change">金币</div>
+                </div>
+                <div class="stat-card">
+                    <h3>累计API调用</h3>
+                    <div class="value" id="statApiCalls">0</div>
+                    <div class="change">次</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2>👋 欢迎回来</h2>
+                </div>
+                <div id="welcomeInfo">
+                    <p style="margin-bottom: 15px; color: #666;">欢迎使用API接口平台！您可以：</p>
+                    <ul style="margin-left: 20px; color: #666; line-height: 2;">
+                        <li>在 <a href="api-keys.html">API密钥</a> 页面查看和管理您的API_KEY</li>
+                        <li>在 <a href="recharge.html">充值</a> 页面为账户充值金币，1元=100金币</li>
+                        <li>在 <a href="promotion.html">推广</a> 页面获取推广链接，享受10%返利</li>
+                        <li>在 <a href="api-test.html">接口测试</a> 页面测试API接口</li>
+                        <li>在 <a href="statistics.html">统计</a> 页面查看详细的消费记录</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2>📦 快速开始</h2>
+                </div>
+                <div style="color: #666; line-height: 2;">
+                    <h4 style="margin-bottom: 15px; color: #333;">使用示例：</h4>
+                    <pre style="background: #f5f5f5; padding: 20px; border-radius: 10px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 13px;">
+curl -X GET "http://localhost:8000/api/v1/taobao/detail?url=商品链接" \
+  -H "X-API-Key: 你的API_KEY"</pre>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/api.js"></script>
+    <script>
+        function logout() {
+            auth.clearSession();
+            window.location.href = 'login.html';
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-CN');
+        }
+        
+        async function loadData() {
+            if (!auth.requireAuth()) return;
+            
+            try {
+                const user = auth.getUser();
+                document.getElementById('balance').textContent = user.balance;
+                document.getElementById('statBalance').textContent = user.balance;
+                
+                const stats = await api.getStatistics();
+                document.getElementById('statPurchases').textContent = stats.total_purchases;
+                document.getElementById('statGoldPurchased').textContent = stats.total_gold_purchased;
+                document.getElementById('statApiCalls').textContent = stats.total_api_calls;
+                
+                const profile = await api.getProfile();
+                document.getElementById('balance').textContent = profile.balance;
+                document.getElementById('statBalance').textContent = profile.balance;
+            } catch (error) {
+                console.error(error);
+                if (error.message.includes('无法验证') {
+                    logout();
+                }
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>
