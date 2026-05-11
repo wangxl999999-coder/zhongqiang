@@ -87,9 +87,12 @@ const api = {
         return response.json();
     },
     
-    async getTaobaoDetail(apiKey, url) {
-        const encodedUrl = encodeURIComponent(url);
-        const response = await fetch(`${API_BASE}/api/v1/taobao/detail?url=${encodedUrl}`, {
+    async getTaobaoDetail(apiKey, url, cookies = '') {
+        let endpoint = `${API_BASE}/api/v1/taobao/detail?url=${encodeURIComponent(url)}`;
+        if (cookies) {
+            endpoint += `&cookies=${encodeURIComponent(cookies)}`;
+        }
+        const response = await fetch(endpoint, {
             headers: {
                 'X-API-Key': apiKey
             }
@@ -97,9 +100,12 @@ const api = {
         return response.json();
     },
     
-    async getTmallDetail(apiKey, url) {
-        const encodedUrl = encodeURIComponent(url);
-        const response = await fetch(`${API_BASE}/api/v1/tmall/detail?url=${encodedUrl}`, {
+    async getTmallDetail(apiKey, url, cookies = '') {
+        let endpoint = `${API_BASE}/api/v1/tmall/detail?url=${encodeURIComponent(url)}`;
+        if (cookies) {
+            endpoint += `&cookies=${encodeURIComponent(cookies)}`;
+        }
+        const response = await fetch(endpoint, {
             headers: {
                 'X-API-Key': apiKey
             }

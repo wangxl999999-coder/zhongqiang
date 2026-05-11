@@ -41,13 +41,14 @@ async def charge_api_usage(user: User, db: Session, endpoint: str, params: str =
 @router.get("/taobao/detail")
 async def get_taobao_detail(
     url: str = Query(..., description="淘宝商品详情页URL"),
+    cookies: Optional[str] = Query(None, description="可选：登录后的Cookie字符串，用于获取完整数据。格式：key1=value1; key2=value2"),
     user: User = Depends(get_user_by_api_key),
     db: Session = Depends(get_db)
 ):
     await charge_api_usage(user, db, "/api/v1/taobao/detail", f"url={url}")
     
     try:
-        result = await scraper.scrape(url)
+        result = await scraper.scrape(url, cookies=cookies)
         return result
     except Exception as e:
         raise HTTPException(
@@ -58,13 +59,14 @@ async def get_taobao_detail(
 @router.get("/tmall/detail")
 async def get_tmall_detail(
     url: str = Query(..., description="天猫商品详情页URL"),
+    cookies: Optional[str] = Query(None, description="可选：登录后的Cookie字符串，用于获取完整数据。格式：key1=value1; key2=value2"),
     user: User = Depends(get_user_by_api_key),
     db: Session = Depends(get_db)
 ):
     await charge_api_usage(user, db, "/api/v1/tmall/detail", f"url={url}")
     
     try:
-        result = await scraper.scrape(url)
+        result = await scraper.scrape(url, cookies=cookies)
         return result
     except Exception as e:
         raise HTTPException(

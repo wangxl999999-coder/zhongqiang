@@ -77,6 +77,13 @@
                             <label>商品URL</label>
                             <input type="text" id="taobaoUrl" placeholder="https://item.taobao.com/item.htm?id=...">
                         </div>
+                        <div class="form-group">
+                            <label>Cookie（可选，用于获取完整数据）</label>
+                            <textarea id="taobaoCookies" rows="3" placeholder="从浏览器复制Cookie字符串，格式：key1=value1; key2=value2"></textarea>
+                            <p style="font-size: 12px; color: #999; margin-top: 5px;">
+                                💡 提示：登录淘宝后，按F12打开开发者工具 → Network标签 → 刷新页面 → 查看任意请求的Request Headers → 复制Cookie值
+                            </p>
+                        </div>
                         <button class="btn btn-primary" onclick="testTaobao()">🚀 开始采集</button>
                     </div>
                     
@@ -100,6 +107,13 @@
                         <div class="form-group">
                             <label>商品URL</label>
                             <input type="text" id="tmallUrl" placeholder="https://detail.tmall.com/item.htm?id=...">
+                        </div>
+                        <div class="form-group">
+                            <label>Cookie（可选，用于获取完整数据）</label>
+                            <textarea id="tmallCookies" rows="3" placeholder="从浏览器复制Cookie字符串，格式：key1=value1; key2=value2"></textarea>
+                            <p style="font-size: 12px; color: #999; margin-top: 5px;">
+                                💡 提示：登录天猫后，按F12打开开发者工具 → Network标签 → 刷新页面 → 查看任意请求的Request Headers → 复制Cookie值
+                            </p>
                         </div>
                         <button class="btn btn-primary" onclick="testTmall()">🚀 开始采集</button>
                     </div>
@@ -226,6 +240,8 @@
                 return;
             }
             
+            const cookies = document.getElementById('taobaoCookies').value.trim();
+            
             const user = auth.getUser();
             if (!user || !user.api_key) {
                 alert('请先登录获取API_KEY');
@@ -233,7 +249,7 @@
             }
             
             try {
-                const result = await api.getTaobaoDetail(user.api_key, url);
+                const result = await api.getTaobaoDetail(user.api_key, url, cookies);
                 showResult('taobaoResult', result);
             } catch (error) {
                 showResult('taobaoResult', { error: error.message });
@@ -247,6 +263,8 @@
                 return;
             }
             
+            const cookies = document.getElementById('tmallCookies').value.trim();
+            
             const user = auth.getUser();
             if (!user || !user.api_key) {
                 alert('请先登录获取API_KEY');
@@ -254,7 +272,7 @@
             }
             
             try {
-                const result = await api.getTmallDetail(user.api_key, url);
+                const result = await api.getTmallDetail(user.api_key, url, cookies);
                 showResult('tmallResult', result);
             } catch (error) {
                 showResult('tmallResult', { error: error.message });
