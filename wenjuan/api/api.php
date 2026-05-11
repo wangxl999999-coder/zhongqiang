@@ -1,7 +1,7 @@
 <?php
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -14,6 +14,57 @@ require_once __DIR__ . '/../includes/helpers.php';
 $db = Database::getInstance();
 $config = require __DIR__ . '/../config/config.php';
 
+function getCurrentUser($db) {
+    $headers = getallheaders();
+    $token = null;
+    
+    if (isset($headers['Authorization'])) {
+        $token = str_replace('Bearer ', '', $headers['Authorization']);
+    } elseif (isset($_GET['token'])) {
+        $token = $_GET['token'];
+    } elseif (isset($_POST['token'])) {
+        $token = $_POST['token'];
+    }
+    
+    if (!$token) {
+        return null;
+    }
+    
+    $session = $db->fetchOne(
+        'SELECT s.*, u.id, u.username, u.nickname, u.avatar, u.phone, u.email 
+         FROM user_sessions s 
+         LEFT JOIN users u ON s.user_id = u.id 
+         WHERE s.session_token = ? AND s.expires_at > NOW()',
+        [$token]
+    );
+    
+    return $session;
+}
+
+function checkSurveyPermission($db, $surveyId, $userId, $minLevel = 2) {
+    $survey = $db->fetchOne('SELECT * FROM surveys WHERE id = ?', [$surveyId]);
+    if (!$survey) {
+        return ['success' => false, 'message' => '问卷不存在'];
+    }
+    
+    if ($survey['user_id'] == $userId) {
+        return ['success' => true, 'role' => 'owner', 'level' => 3];
+    }
+    
+    if ($userId) {
+        $collab = $db->fetchOne(
+            'SELECT * FROM survey_collaborators WHERE survey_id = ? AND user_id = ?',
+            [$surveyId, $userId]
+        );
+        if ($collab && $collab['permission_level'] >= $minLevel) {
+            return ['success' => true, 'role' => $collab['role'], 'level' => $collab['permission_level']];
+        }
+    }
+    
+    return ['success' => false, 'message' => '没有权限操作此问卷'];
+}
+
+$currentUser = getCurrentUser($db);
 $action = $_GET['action'] ?? '';
 
 switch ($action) {
@@ -104,7 +155,20 @@ switch ($action) {
 }
 
 function getSurveys($db) {
-    $surveys = $db->fetchAll('SELECT * FROM surveys ORDER BY created_at DESC');
+    global $currentUser;
+    $userId = $currentUser ? $currentUser['id'] : null;
+    
+    if (!$userId) {
+        jsonResponse(['success' => true, 'data' => []]);
+        return;
+    }
+    
+    $sql = 'SELECT DISTINCT s.* FROM surveys s 
+            LEFT JOIN survey_collaborators sc ON s.id = sc.survey_id 
+            WHERE s.user_id = ? OR sc.user_id = ? 
+            ORDER BY s.created_at DESC';
+    $surveys = $db->fetchAll($sql, [$userId, $userId]);
+    
     foreach ($surveys as &$survey) {
         $survey['question_count'] = $db->fetchOne(
             'SELECT COUNT(*) as count FROM questions WHERE survey_id = ?',
@@ -114,15 +178,41 @@ function getSurveys($db) {
             'SELECT COUNT(*) as count FROM responses WHERE survey_id = ?',
             [$survey['id']]
         )['count'];
+        $survey['is_owner'] = ($survey['user_id'] == $userId);
+        if (!$survey['is_owner']) {
+            $collab = $db->fetchOne(
+                'SELECT * FROM survey_collaborators WHERE survey_id = ? AND user_id = ?',
+                [$survey['id'], $userId]
+            );
+            $survey['permission_level'] = $collab ? $collab['permission_level'] : 0;
+            $survey['role'] = $collab ? $collab['role'] : null;
+        } else {
+            $survey['permission_level'] = 3;
+            $survey['role'] = 'owner';
+        }
     }
     jsonResponse(['success' => true, 'data' => $surveys]);
 }
 
 function getSurvey($db) {
+    global $currentUser;
     $id = $_GET['id'] ?? 0;
     $survey = $db->fetchOne('SELECT * FROM surveys WHERE id = ?', [$id]);
     if (!$survey) {
         jsonResponse(['success' => false, 'message' => '问卷不存在']);
+    }
+    
+    $userId = $currentUser ? $currentUser['id'] : null;
+    $permission = null;
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $id, $userId, 1);
+        if (!$perm['success']) {
+            jsonResponse(['success' => false, 'message' => $perm['message'], 'code' => 401]);
+        }
+        $permission = $perm;
+    } elseif ($survey['is_public'] != 1) {
+        jsonResponse(['success' => false, 'message' => '没有权限访问此问卷', 'code' => 401]);
     }
     
     $questions = $db->fetchAll(
@@ -150,15 +240,19 @@ function getSurvey($db) {
     jsonResponse(['success' => true, 'data' => [
         'survey' => $survey,
         'questions' => $questions,
-        'conditions' => $conditions
+        'conditions' => $conditions,
+        'permission' => $permission
     ]]);
 }
 
 function createSurvey($db) {
+    global $currentUser;
     $input = getInput();
     $title = sanitizeInput($input['title'] ?? '未命名问卷');
+    $userId = $currentUser ? $currentUser['id'] : null;
     
     $id = $db->insert('surveys', [
+        'user_id' => $userId,
         'title' => $title,
         'description' => sanitizeInput($input['description'] ?? ''),
         'share_token' => generateToken(32)
@@ -168,8 +262,17 @@ function createSurvey($db) {
 }
 
 function updateSurvey($db) {
+    global $currentUser;
     $input = getInput();
     $id = $input['id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $id, $userId, 2);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $updateData = [];
     
@@ -228,17 +331,35 @@ function updateSurvey($db) {
 }
 
 function deleteSurvey($db) {
+    global $currentUser;
     $input = getInput();
     $id = $input['id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $id, $userId, 3);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $db->delete('surveys', 'id = ?', [$id]);
     jsonResponse(['success' => true]);
 }
 
 function saveQuestions($db) {
+    global $currentUser;
     $input = getInput();
     $surveyId = $input['survey_id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
     $questions = $input['questions'] ?? [];
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $surveyId, $userId, 2);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $db->delete('questions', 'survey_id = ?', [$surveyId]);
     
@@ -270,9 +391,18 @@ function saveQuestions($db) {
 }
 
 function saveConditions($db) {
+    global $currentUser;
     $input = getInput();
     $surveyId = $input['survey_id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
     $conditions = $input['conditions'] ?? [];
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $surveyId, $userId, 2);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $db->delete('conditions', 'survey_id = ?', [$surveyId]);
     
@@ -415,7 +545,17 @@ function submitResponse($db) {
 }
 
 function getResponses($db) {
+    global $currentUser;
     $surveyId = $_GET['survey_id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $surveyId, $userId, 1);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
+    
     $page = intval($_GET['page'] ?? 1);
     $pageSize = intval($_GET['page_size'] ?? 20);
     $offset = ($page - 1) * $pageSize;
@@ -439,9 +579,17 @@ function getResponses($db) {
 }
 
 function getResponseDetail($db) {
+    global $currentUser;
     $responseId = $_GET['response_id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
     
     $response = $db->fetchOne('SELECT * FROM responses WHERE id = ?', [$responseId]);
+    if ($response && $userId) {
+        $perm = checkSurveyPermission($db, $response['survey_id'], $userId, 1);
+        if (!$perm['success']) {
+            jsonResponse(['success' => false, 'message' => '没有权限查看此答卷']);
+        }
+    }
     if (!$response) {
         jsonResponse(['success' => false, 'message' => '答卷不存在']);
     }
@@ -460,7 +608,16 @@ function getResponseDetail($db) {
 }
 
 function getStatistics($db) {
+    global $currentUser;
     $surveyId = $_GET['survey_id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $surveyId, $userId, 1);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $questions = $db->fetchAll(
         'SELECT * FROM questions WHERE survey_id = ? AND type IN ("radio", "checkbox", "select", "rating") ORDER BY sort_order',
@@ -575,7 +732,16 @@ function getStatistics($db) {
 }
 
 function exportExcel($db) {
+    global $currentUser;
     $surveyId = $_GET['survey_id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $surveyId, $userId, 1);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $survey = $db->fetchOne('SELECT * FROM surveys WHERE id = ?', [$surveyId]);
     $questions = $db->fetchAll(
@@ -646,7 +812,16 @@ function exportExcel($db) {
 }
 
 function exportCsv($db) {
+    global $currentUser;
     $surveyId = $_GET['survey_id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $surveyId, $userId, 1);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $survey = $db->fetchOne('SELECT * FROM surveys WHERE id = ?', [$surveyId]);
     $questions = $db->fetchAll(
@@ -855,10 +1030,19 @@ function saveAsTemplate($db) {
 }
 
 function getCollaborators($db) {
+    global $currentUser;
     $surveyId = $_GET['survey_id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
+    
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $surveyId, $userId, 1);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $collaborators = $db->fetchAll(
-        'SELECT c.*, u.username, u.nickname, u.avatar 
+        'SELECT c.*, u.username, u.nickname, u.avatar, u.phone 
          FROM survey_collaborators c 
          LEFT JOIN users u ON c.user_id = u.id 
          WHERE c.survey_id = ?',
@@ -869,19 +1053,32 @@ function getCollaborators($db) {
 }
 
 function addCollaborator($db) {
+    global $currentUser;
     $input = getInput();
     $surveyId = $input['survey_id'] ?? 0;
-    $username = $input['username'] ?? '';
+    $userId = $currentUser ? $currentUser['id'] : null;
+    $account = $input['account'] ?? $input['username'] ?? '';
     $role = $input['role'] ?? 'editor';
     $permissionLevel = $input['permission_level'] ?? 2;
     
-    $user = $db->fetchOne('SELECT id FROM users WHERE username = ?', [$username]);
+    if ($userId) {
+        $perm = checkSurveyPermission($db, $surveyId, $userId, 3);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
+    
+    $user = $db->fetchOne(
+        'SELECT id FROM users WHERE username = ? OR phone = ? OR email = ?',
+        [$account, $account, $account]
+    );
+    
     if (!$user) {
         $password = generateToken(8);
         $userId = $db->insert('users', [
-            'username' => sanitizeInput($username),
+            'username' => sanitizeInput($account),
             'password' => password_hash($password, PASSWORD_DEFAULT),
-            'nickname' => sanitizeInput($username)
+            'nickname' => sanitizeInput($account)
         ]);
     } else {
         $userId = $user['id'];
@@ -907,10 +1104,20 @@ function addCollaborator($db) {
 }
 
 function updateCollaborator($db) {
+    global $currentUser;
     $input = getInput();
     $id = $input['id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
     $role = $input['role'] ?? 'editor';
     $permissionLevel = $input['permission_level'] ?? 2;
+    
+    $collab = $db->fetchOne('SELECT * FROM survey_collaborators WHERE id = ?', [$id]);
+    if ($collab && $userId) {
+        $perm = checkSurveyPermission($db, $collab['survey_id'], $userId, 3);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $db->update('survey_collaborators', [
         'role' => $role,
@@ -921,8 +1128,18 @@ function updateCollaborator($db) {
 }
 
 function removeCollaborator($db) {
+    global $currentUser;
     $input = getInput();
     $id = $input['id'] ?? 0;
+    $userId = $currentUser ? $currentUser['id'] : null;
+    
+    $collab = $db->fetchOne('SELECT * FROM survey_collaborators WHERE id = ?', [$id]);
+    if ($collab && $userId) {
+        $perm = checkSurveyPermission($db, $collab['survey_id'], $userId, 3);
+        if (!$perm['success']) {
+            jsonResponse($perm);
+        }
+    }
     
     $db->delete('survey_collaborators', 'id = ?', [$id]);
     jsonResponse(['success' => true]);

@@ -1,12 +1,20 @@
 const API_BASE = 'api/api.php';
+const AUTH_API = 'api/auth.php';
 
 const app = {
     surveys: [],
     templates: [],
     currentCategory: 'all',
     currentTemplate: null,
+    user: null,
+    authToken: null,
     
-    init() {
+    async init() {
+        this.authToken = localStorage.getItem('auth_token');
+        if (this.authToken) {
+            await this.loadUserInfo();
+        }
+        this.renderUserMenu();
         this.bindEvents();
         this.loadSurveys();
     },
@@ -27,6 +35,37 @@ const app = {
                 this.filterTemplates();
             });
         });
+        
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('user-dropdown');
+            if (dropdown && !e.target.closest('.dropdown')) {
+                dropdown.classList.remove('active');
+            }
+        });
+        
+        const avatarPreview = document.getElementById('profile-avatar');
+        if (avatarPreview) {
+            avatarPreview.addEventListener('click', () => {
+                document.getElementById('avatar-input').click();
+            });
+        }
+        
+        const avatarInput = document.getElementById('avatar-input');
+        if (avatarInput) {
+            avatarInput.addEventListener('change', (e) => this.handleAvatarUpload(e));
+        }
+        
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.closest('.modal').classList.remove('active');
+            });
+        });
+    },
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     },
     
     switchView(viewName) {
@@ -43,8 +82,9 @@ const app = {
         }
     },
     
-    async request(action, method = 'GET', data = null, params = null) {
-        let url = `${API_BASE}?action=${action}`;
+    async request(action, method = 'GET', data = null, params = null, isAuth = false) {
+        let base = isAuth ? AUTH_API : API_BASE;
+        let url = `${base}?action=${action}`;
         
         if (params) {
             for (const [key, value] of Object.entries(params)) {
@@ -59,12 +99,222 @@ const app = {
             }
         };
         
-        if (data) {
+        if (this.authToken) {
+            options.headers['Authorization'] = 'Bearer ' + this.authToken;
+        }
+        
+        if (data && !(data instanceof FormData)) {
             options.body = JSON.stringify(data);
+        } else if (data instanceof FormData) {
+            delete options.headers['Content-Type'];
+            options.body = data;
         }
         
         const response = await fetch(url, options);
         return response.json();
+    },
+    
+    async loadUserInfo() {
+        const result = await this.request('get_user', 'GET', null, null, true);
+        if (result.success) {
+            this.user = result.data;
+            localStorage.setItem('user_info', JSON.stringify(this.user));
+        } else {
+            this.authToken = null;
+            this.user = null;
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_info');
+        }
+    },
+    
+    renderUserMenu() {
+        const container = document.getElementById('user-menu');
+        if (!container) return;
+        
+        if (this.user) {
+            const avatarText = (this.user.nickname || this.user.username || 'U').charAt(0).toUpperCase();
+            const avatarHtml = this.user.avatar_url 
+                ? `<img src="${this.user.avatar_url}" alt="头像">`
+                : avatarText;
+            
+            container.innerHTML = `
+                <div class="dropdown">
+                    <div class="user-info" onclick="app.toggleUserDropdown()">
+                        <div class="user-avatar">${avatarHtml}</div>
+                        <span class="user-name">${this.escapeHtml(this.user.nickname || this.user.username)}</span>
+                        <span style="color: var(--text-muted); font-size: 12px;">▼</span>
+                    </div>
+                    <div class="dropdown-menu" id="user-dropdown">
+                        <div class="dropdown-item" onclick="app.openProfileModal()">
+                            <span>👤</span> 个人资料
+                        </div>
+                        <div class="dropdown-item" onclick="app.openPasswordModal()">
+                            <span>🔐</span> 修改密码
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-item danger" onclick="app.logout()">
+                            <span>🚪</span> 退出登录
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <button class="btn-login" onclick="app.goToLogin()">登录 / 注册</button>
+            `;
+        }
+    },
+    
+    toggleUserDropdown() {
+        const dropdown = document.getElementById('user-dropdown');
+        if (dropdown) {
+            dropdown.classList.toggle('active');
+        }
+    },
+    
+    goToLogin() {
+        location.href = 'login.php?redirect=' + encodeURIComponent(location.pathname + location.search);
+    },
+    
+    async logout() {
+        await this.request('logout', 'POST', null, null, true);
+        this.authToken = null;
+        this.user = null;
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_info');
+        this.renderUserMenu();
+        this.loadSurveys();
+    },
+    
+    openProfileModal() {
+        if (!this.user) return;
+        
+        const modal = document.getElementById('modal-profile');
+        const avatarPreview = document.getElementById('profile-avatar');
+        const avatarText = (this.user.nickname || this.user.username || 'U').charAt(0).toUpperCase();
+        
+        if (this.user.avatar_url) {
+            avatarPreview.innerHTML = `<img src="${this.user.avatar_url}?t=${Date.now()}" alt="头像">`;
+        } else {
+            avatarPreview.innerHTML = avatarText;
+        }
+        
+        document.getElementById('profile-nickname').value = this.user.nickname || '';
+        document.getElementById('profile-email').value = this.user.email || '';
+        document.getElementById('profile-phone').value = this.user.phone || '未绑定';
+        
+        document.getElementById('user-dropdown').classList.remove('active');
+        modal.classList.add('active');
+    },
+    
+    closeProfileModal() {
+        document.getElementById('modal-profile').classList.remove('active');
+    },
+    
+    openPasswordModal() {
+        document.getElementById('user-dropdown').classList.remove('active');
+        document.getElementById('pwd-old').value = '';
+        document.getElementById('pwd-new').value = '';
+        document.getElementById('pwd-confirm').value = '';
+        document.getElementById('modal-password').classList.add('active');
+    },
+    
+    closePasswordModal() {
+        document.getElementById('modal-password').classList.remove('active');
+    },
+    
+    async saveProfile() {
+        const nickname = document.getElementById('profile-nickname').value.trim();
+        const email = document.getElementById('profile-email').value.trim();
+        
+        if (!nickname) {
+            alert('昵称不能为空');
+            return;
+        }
+        
+        const result = await this.request('update_profile', 'POST', {
+            nickname,
+            email
+        }, null, true);
+        
+        if (result.success) {
+            this.user = result.data;
+            localStorage.setItem('user_info', JSON.stringify(this.user));
+            this.renderUserMenu();
+            this.closeProfileModal();
+            alert('保存成功');
+        } else {
+            alert(result.message || '保存失败');
+        }
+    },
+    
+    async handleAvatarUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+            alert('只支持 JPG/PNG/GIF 格式');
+            return;
+        }
+        
+        if (file.size > 2 * 1024 * 1024) {
+            alert('图片大小不能超过 2MB');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('avatar', file);
+        
+        const result = await this.request('update_avatar', 'POST', formData, null, true);
+        
+        if (result.success) {
+            this.user.avatar = result.data.avatar;
+            this.user.avatar_url = result.data.avatar_url;
+            localStorage.setItem('user_info', JSON.stringify(this.user));
+            
+            const avatarPreview = document.getElementById('profile-avatar');
+            avatarPreview.innerHTML = `<img src="${result.data.avatar_url}?t=${Date.now()}" alt="头像">`;
+            
+            this.renderUserMenu();
+            alert('头像更新成功');
+        } else {
+            alert(result.message || '上传失败');
+        }
+        
+        e.target.value = '';
+    },
+    
+    async changePassword() {
+        const oldPwd = document.getElementById('pwd-old').value;
+        const newPwd = document.getElementById('pwd-new').value;
+        const confirmPwd = document.getElementById('pwd-confirm').value;
+        
+        if (!oldPwd || !newPwd || !confirmPwd) {
+            alert('请填写完整信息');
+            return;
+        }
+        
+        if (newPwd.length < 6) {
+            alert('新密码长度至少6位');
+            return;
+        }
+        
+        if (newPwd !== confirmPwd) {
+            alert('两次输入的新密码不一致');
+            return;
+        }
+        
+        const result = await this.request('update_password', 'POST', {
+            old_password: oldPwd,
+            new_password: newPwd
+        }, null, true);
+        
+        if (result.success) {
+            alert('密码修改成功');
+            this.closePasswordModal();
+        } else {
+            alert(result.message || '修改失败');
+        }
     },
     
     async loadSurveys() {

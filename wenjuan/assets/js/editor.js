@@ -1,4 +1,5 @@
 const API_BASE = 'api/api.php';
+const AUTH_API = 'api/auth.php';
 
 const editor = {
     surveyId: 0,
@@ -9,11 +10,108 @@ const editor = {
     draggedType: null,
     dragIndex: null,
     qrCode: null,
+    user: null,
+    authToken: null,
+    surveyPermission: null,
     
-    init() {
+    async init() {
         this.surveyId = parseInt(document.getElementById('editor-app').dataset.surveyId);
-        this.bindEvents();
-        this.loadSurvey();
+        this.authToken = localStorage.getItem('auth_token');
+        
+        if (!this.authToken) {
+            this.showNoPermission('请先登录', '您需要登录后才能编辑问卷');
+            return;
+        }
+        
+        await this.loadUserInfo();
+        await this.checkPermission();
+        
+        if (this.surveyPermission) {
+            this.bindEvents();
+            await this.loadSurvey();
+            this.updateUIByPermission();
+        }
+    },
+    
+    async loadUserInfo() {
+        const result = await this.request('get_user', 'GET', null, null, true);
+        if (result.success) {
+            this.user = result.data;
+        } else {
+            this.authToken = null;
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_info');
+        }
+    },
+    
+    async checkPermission() {
+        if (!this.surveyId) {
+            this.surveyPermission = { success: true, role: 'owner', level: 3 };
+            return;
+        }
+        
+        const result = await this.request('get_survey', 'GET', null, { id: this.surveyId });
+        
+        if (!result.success) {
+            if (result.message?.includes('权限') || result.code === 401) {
+                this.showNoPermission('没有访问权限', '您没有权限编辑此问卷');
+                return;
+            }
+            this.showNoPermission('问卷不存在', '您访问的问卷不存在或已被删除');
+            return;
+        }
+        
+        this.surveyPermission = result.data.permission || { success: true, role: 'owner', level: 3 };
+    },
+    
+    showNoPermission(title, message) {
+        const app = document.getElementById('editor-app');
+        app.innerHTML = `
+            <div class="no-permission">
+                <div class="no-permission-icon">🔒</div>
+                <h2>${title}</h2>
+                <p>${message}</p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    ${!this.authToken ? '<button class="btn btn-primary" onclick="location.href=\'login.php?redirect=' + encodeURIComponent(location.href) + '\'">立即登录</button>' : ''}
+                    <button class="btn" onclick="location.href='index.php'">返回首页</button>
+                </div>
+            </div>
+        `;
+    },
+    
+    updateUIByPermission() {
+        const canEdit = this.surveyPermission.level >= 2;
+        const canManage = this.surveyPermission.level >= 3;
+        
+        const editorContainer = document.querySelector('.editor-container');
+        const btnSave = document.getElementById('btn-save');
+        const btnPublish = document.getElementById('btn-publish');
+        const btnSettings = document.getElementById('btn-settings');
+        const btnCollaborators = document.getElementById('btn-collaborators');
+        const surveyTitle = document.getElementById('survey-title');
+        const surveyDesc = document.getElementById('survey-description');
+        
+        if (!canEdit) {
+            if (editorContainer) editorContainer.classList.add('editor-locked');
+            if (btnSave) btnSave.style.display = 'none';
+            if (btnPublish) btnPublish.style.display = 'none';
+            if (btnSettings) btnSettings.style.display = 'none';
+            if (btnCollaborators) btnCollaborators.style.display = 'none';
+            if (surveyTitle) surveyTitle.disabled = true;
+            if (surveyDesc) surveyDesc.disabled = true;
+            
+            if (surveyTitle) {
+                const badgeClass = this.surveyPermission.role === 'viewer' ? 'viewer' : 'editor';
+                const badgeText = this.surveyPermission.role === 'viewer' ? '查看者' : '编辑者';
+                surveyTitle.insertAdjacentHTML('afterend', `
+                    <span class="permission-badge ${badgeClass}">${badgeText}</span>
+                `);
+            }
+        }
+        
+        if (!canManage && btnCollaborators) {
+            btnCollaborators.style.display = 'none';
+        }
     },
     
     bindEvents() {
@@ -89,8 +187,9 @@ const editor = {
         });
     },
     
-    async request(action, method = 'GET', data = null, params = null) {
-        let url = `${API_BASE}?action=${action}`;
+    async request(action, method = 'GET', data = null, params = null, isAuth = false) {
+        let base = isAuth ? AUTH_API : API_BASE;
+        let url = `${base}?action=${action}`;
         
         if (params) {
             for (const [key, value] of Object.entries(params)) {
@@ -100,18 +199,29 @@ const editor = {
         
         const options = {
             method,
-            headers: { 'Content-Type': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json'
+            }
         };
-        if (data) options.body = JSON.stringify(data);
+        
+        if (this.authToken) {
+            options.headers['Authorization'] = 'Bearer ' + this.authToken;
+        }
+        
+        if (data && !(data instanceof FormData)) {
+            options.body = JSON.stringify(data);
+        } else if (data instanceof FormData) {
+            delete options.headers['Content-Type'];
+            options.body = data;
+        }
+        
         const response = await fetch(url, options);
         return response.json();
     },
     
     async loadSurvey() {
         if (this.surveyId) {
-            const url = `${API_BASE}?action=get_survey&id=${this.surveyId}`;
-            const response = await fetch(url);
-            const result = await response.json();
+            const result = await this.request('get_survey', 'GET', null, { id: this.surveyId });
             
             if (result.success) {
                 this.survey = result.data.survey;

@@ -9,6 +9,60 @@ $surveyId = $_GET['id'] ?? 0;
     <title>问卷编辑器</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/editor.css">
+    <style>
+        .no-permission {
+            max-width: 500px;
+            margin: 100px auto;
+            padding: 40px;
+            text-align: center;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .no-permission-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .no-permission h2 {
+            margin-bottom: 15px;
+            color: var(--text);
+        }
+        
+        .no-permission p {
+            color: var(--text-muted);
+            margin-bottom: 25px;
+        }
+        
+        .editor-locked {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .permission-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+        
+        .permission-badge.owner {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .permission-badge.editor {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        
+        .permission-badge.viewer {
+            background: #e5e7eb;
+            color: #6b7280;
+        }
+    </style>
 </head>
 <body>
     <div id="editor-app" data-survey-id="<?php echo $surveyId; ?>">
