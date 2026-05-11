@@ -61,6 +61,7 @@
         :headers="uploadHeaders"
         :data="{ projectId: route.params.id }"
         :on-success="handleUploadSuccess"
+        name="files"
         multiple
         :auto-upload="false"
         ref="uploadRef"

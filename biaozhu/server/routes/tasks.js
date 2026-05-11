@@ -12,40 +12,52 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-const storage = multer.diskStorage({
+const tempStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const projectDir = path.join(uploadDir, `project_${req.body.projectId}`);
-    if (!fs.existsSync(projectDir)) {
-      fs.mkdirSync(projectDir, { recursive: true });
-    }
-    cb(null, projectDir);
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const name = Date.now() + ext;
+    const name = Date.now() + '_' + Math.random().toString(36).substr(2, 9) + ext;
     cb(null, name);
   }
 });
 
-const upload = multer({ storage });
+const upload = multer({ storage: tempStorage });
 
 router.post('/upload', auth, requireRole('admin'), upload.array('files'), async (req, res) => {
   try {
     const { projectId } = req.body;
     const files = req.files;
 
+    if (!projectId) {
+      return res.status(400).json({ error: '缺少项目ID' });
+    }
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: '请选择要上传的文件' });
+    }
+
+    const projectDir = path.join(uploadDir, `project_${projectId}`);
+    if (!fs.existsSync(projectDir)) {
+      fs.mkdirSync(projectDir, { recursive: true });
+    }
+
     const tasks = await Promise.all(
-      files.map((file) =>
-        Task.create({
+      files.map((file) => {
+        const finalPath = path.join(projectDir, file.filename);
+        fs.renameSync(file.path, finalPath);
+        return Task.create({
           projectId,
-          dataPath: file.path,
+          dataPath: finalPath,
           dataName: file.originalname
-        })
-      )
+        });
+      })
     );
 
     res.status(201).json(tasks);
   } catch (error) {
+    console.error('Upload error:', error);
     res.status(500).json({ error: '上传文件失败' });
   }
 });
