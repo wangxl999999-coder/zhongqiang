@@ -54,6 +54,7 @@ const editor = {
         document.getElementById('btn-publish').addEventListener('click', () => this.showPublishModal());
         document.getElementById('btn-preview').addEventListener('click', () => this.showPreview());
         document.getElementById('btn-settings').addEventListener('click', () => this.showSettingsModal());
+        document.getElementById('btn-collaborators').addEventListener('click', () => this.showCollaboratorsModal());
         
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -69,6 +70,15 @@ const editor = {
         document.getElementById('confirm-publish').addEventListener('click', () => this.publishSurvey());
         document.getElementById('unpublish').addEventListener('click', () => this.unpublishSurvey());
         document.getElementById('copy-url').addEventListener('click', () => this.copyShareUrl());
+        document.getElementById('add-collaborator').addEventListener('click', () => this.addCollaborator());
+        
+        document.querySelectorAll('.settings-tab').forEach(tab => {
+            tab.addEventListener('click', () => this.switchSettingsTab(tab.dataset.tab));
+        });
+        
+        document.querySelectorAll('input[name="ip-limit-type"]').forEach(radio => {
+            radio.addEventListener('change', () => this.updateIpLimitFields());
+        });
         
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -79,8 +89,15 @@ const editor = {
         });
     },
     
-    async request(action, method = 'GET', data = null) {
-        const url = `${API_BASE}?action=${action}`;
+    async request(action, method = 'GET', data = null, params = null) {
+        let url = `${API_BASE}?action=${action}`;
+        
+        if (params) {
+            for (const [key, value] of Object.entries(params)) {
+                url += `&${key}=${encodeURIComponent(value)}`;
+            }
+        }
+        
         const options = {
             method,
             headers: { 'Content-Type': 'application/json' }
@@ -626,23 +643,154 @@ const editor = {
         document.getElementById('setting-limit-once').checked = this.survey?.limit_once === 1;
         document.getElementById('setting-password').value = '';
         
+        document.getElementById('setting-time-limit').value = this.survey?.time_limit || '';
+        document.getElementById('setting-ip-whitelist').value = this.survey?.ip_whitelist || '';
+        document.getElementById('setting-ip-blacklist').value = this.survey?.ip_blacklist || '';
+        
+        const ipLimitType = this.survey?.ip_limit_type || 0;
+        document.querySelectorAll('input[name="ip-limit-type"]').forEach(radio => {
+            radio.checked = parseInt(radio.value) === ipLimitType;
+        });
+        
+        this.updateIpLimitFields();
+        this.switchSettingsTab('basic');
+        
         document.getElementById('modal-settings').classList.add('active');
+    },
+    
+    switchSettingsTab(tab) {
+        document.querySelectorAll('.settings-tab').forEach(t => {
+            t.classList.toggle('active', t.dataset.tab === tab);
+        });
+        document.querySelectorAll('.settings-panel').forEach(p => {
+            p.classList.toggle('active', p.dataset.panel === tab);
+        });
+    },
+    
+    updateIpLimitFields() {
+        const ipLimitType = document.querySelector('input[name="ip-limit-type"]:checked')?.value || '0';
+        document.getElementById('ip-whitelist-group').style.display = ipLimitType === '1' ? 'block' : 'none';
+        document.getElementById('ip-blacklist-group').style.display = ipLimitType === '2' ? 'block' : 'none';
     },
     
     async saveSettings() {
         await this.saveAll();
+        
+        const ipLimitType = parseInt(document.querySelector('input[name="ip-limit-type"]:checked')?.value || '0');
         
         const result = await this.request('update_survey', 'POST', {
             id: this.surveyId,
             end_time: document.getElementById('setting-end-time').value || null,
             max_responses: document.getElementById('setting-max-responses').value || null,
             limit_once: document.getElementById('setting-limit-once').checked ? 1 : 0,
-            password: document.getElementById('setting-password').value || ''
+            password: document.getElementById('setting-password').value || '',
+            time_limit: document.getElementById('setting-time-limit').value || null,
+            ip_limit_type: ipLimitType,
+            ip_whitelist: ipLimitType === 1 ? document.getElementById('setting-ip-whitelist').value : '',
+            ip_blacklist: ipLimitType === 2 ? document.getElementById('setting-ip-blacklist').value : ''
         });
         
         if (result.success) {
             document.getElementById('modal-settings').classList.remove('active');
             alert('设置已保存！');
+        }
+    },
+    
+    async showCollaboratorsModal() {
+        await this.loadCollaborators();
+        document.getElementById('modal-collaborators').classList.add('active');
+    },
+    
+    closeCollaboratorsModal() {
+        document.getElementById('modal-collaborators').classList.remove('active');
+    },
+    
+    async loadCollaborators() {
+        const result = await this.request('get_collaborators', 'GET', null, {
+            survey_id: this.surveyId
+        });
+        
+        const container = document.getElementById('collaborator-list');
+        
+        if (!result.success || !result.data || result.data.length === 0) {
+            container.innerHTML = '<div class="empty-hint" style="text-align: center; padding: 40px 0; color: var(--text-muted);">暂无协作成员</div>';
+            return;
+        }
+        
+        const roleLabels = {
+            owner: '拥有者',
+            editor: '编辑者',
+            viewer: '查看者'
+        };
+        
+        container.innerHTML = result.data.map(collab => `
+            <div class="collaborator-item">
+                <div class="collaborator-info">
+                    <div class="collaborator-avatar">${(collab.nickname || collab.username || '?').charAt(0).toUpperCase()}</div>
+                    <div>
+                        <div class="collaborator-name">${this.escapeHtml(collab.nickname || collab.username)}</div>
+                        <div class="collaborator-role">${roleLabels[collab.role] || collab.role}</div>
+                    </div>
+                </div>
+                <div class="collaborator-actions">
+                    ${collab.role !== 'owner' ? `
+                        <select class="collaborator-role-select" data-id="${collab.id}" onchange="editor.updateCollaboratorRole(${collab.id}, this.value)">
+                            <option value="viewer" ${collab.role === 'viewer' ? 'selected' : ''}>查看者</option>
+                            <option value="editor" ${collab.role === 'editor' ? 'selected' : ''}>编辑者</option>
+                        </select>
+                        <button class="btn btn-danger" onclick="editor.removeCollaborator(${collab.id})">移除</button>
+                    ` : '<span style="color: var(--primary); font-weight: 500;">创建者</span>'}
+                </div>
+            </div>
+        `).join('');
+    },
+    
+    async addCollaborator() {
+        const name = document.getElementById('collaborator-name').value.trim();
+        const role = document.getElementById('collaborator-role').value;
+        
+        if (!name) {
+            alert('请输入用户名');
+            return;
+        }
+        
+        const result = await this.request('add_collaborator', 'POST', {
+            survey_id: this.surveyId,
+            username: name,
+            role: role
+        });
+        
+        if (result.success) {
+            document.getElementById('collaborator-name').value = '';
+            this.loadCollaborators();
+        } else {
+            alert(result.message || '添加失败');
+        }
+    },
+    
+    async updateCollaboratorRole(collabId, role) {
+        const result = await this.request('update_collaborator', 'POST', {
+            id: collabId,
+            role: role
+        });
+        
+        if (!result.success) {
+            alert(result.message || '更新失败');
+            this.loadCollaborators();
+        }
+    },
+    
+    async removeCollaborator(collabId) {
+        if (!confirm('确定要移除该协作成员吗？')) return;
+        
+        const result = await this.request('remove_collaborator', 'POST', {
+            id: collabId
+        });
+        
+        if (result.success) {
+            this.loadCollaborators();
+        } else {
+            alert(result.message || '移除失败');
         }
     },
     

@@ -43,6 +43,16 @@ $token = $_GET['token'] ?? '';
         </div>
     </div>
     
+    <div class="modal" id="modal-timeup">
+        <div class="modal-content">
+            <div class="modal-body success-modal">
+                <div class="success-icon timeup-icon">⏰</div>
+                <h3>答题时间已到</h3>
+                <p>您的答卷已自动保存</p>
+            </div>
+        </div>
+    </div>
+    
     <script src="assets/js/view.js"></script>
 </body>
 </html>

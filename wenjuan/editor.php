@@ -19,6 +19,7 @@ $surveyId = $_GET['id'] ?? 0;
                     <input type="text" id="survey-title" class="title-input" placeholder="问卷标题">
                 </div>
                 <div class="header-right">
+                    <button class="btn" id="btn-collaborators">👥 协作</button>
                     <button class="btn" id="btn-preview">预览</button>
                     <button class="btn" id="btn-settings">设置</button>
                     <button class="btn" id="btn-save">保存</button>
@@ -81,28 +82,69 @@ $surveyId = $_GET['id'] ?? 0;
         </div>
         
         <div class="modal" id="modal-settings">
-            <div class="modal-content">
+            <div class="modal-content modal-wide">
                 <div class="modal-header">
                     <h3>问卷设置</h3>
                     <button class="close-modal">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label>截止时间</label>
-                        <input type="datetime-local" id="setting-end-time">
+                    <div class="settings-tabs">
+                        <button class="settings-tab active" data-tab="basic">基本设置</button>
+                        <button class="settings-tab" data-tab="security">安全与限制</button>
                     </div>
-                    <div class="form-group">
-                        <label>最大回收份数</label>
-                        <input type="number" id="setting-max-responses" min="0" placeholder="不限制留空">
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="setting-limit-once"> 限答一次（按IP限制）
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label>访问密码</label>
-                        <input type="text" id="setting-password" placeholder="留空则无需密码">
+                    
+                    <div class="settings-content">
+                        <div class="settings-panel active" data-panel="basic">
+                            <div class="form-group">
+                                <label>截止时间</label>
+                                <input type="datetime-local" id="setting-end-time">
+                            </div>
+                            <div class="form-group">
+                                <label>最大回收份数</label>
+                                <input type="number" id="setting-max-responses" min="0" placeholder="不限制留空">
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="setting-limit-once"> 限答一次（按IP限制）
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>访问密码</label>
+                                <input type="text" id="setting-password" placeholder="留空则无需密码">
+                            </div>
+                        </div>
+                        
+                        <div class="settings-panel" data-panel="security">
+                            <div class="form-group">
+                                <label>答题时长限制（分钟）</label>
+                                <input type="number" id="setting-time-limit" min="1" max="1440" placeholder="不限则留空">
+                                <div class="field-hint">设置后，答题者必须在规定时间内完成问卷，超时将自动提交</div>
+                            </div>
+                            <div class="form-group">
+                                <label>IP访问限制</label>
+                                <div class="radio-group">
+                                    <label class="radio-label">
+                                        <input type="radio" name="ip-limit-type" value="0" checked> 不限制
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="ip-limit-type" value="1"> 白名单模式（仅允许）
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="ip-limit-type" value="2"> 黑名单模式（禁止访问）
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-group" id="ip-whitelist-group" style="display: none;">
+                                <label>IP白名单</label>
+                                <textarea id="setting-ip-whitelist" rows="3" placeholder="支持单个IP或CIDR格式（如192.168.1.0/24），多个用逗号分隔"></textarea>
+                                <div class="field-hint">只有列表中的IP地址可以访问此问卷</div>
+                            </div>
+                            <div class="form-group" id="ip-blacklist-group" style="display: none;">
+                                <label>IP黑名单</label>
+                                <textarea id="setting-ip-blacklist" rows="3" placeholder="支持单个IP或CIDR格式（如192.168.1.0/24），多个用逗号分隔"></textarea>
+                                <div class="field-hint">列表中的IP地址将被禁止访问此问卷</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -149,6 +191,33 @@ $surveyId = $_GET['id'] ?? 0;
                 </div>
                 <div class="modal-body preview-body">
                     <div id="preview-container" class="preview-container"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal" id="modal-collaborators">
+            <div class="modal-content modal-wide">
+                <div class="modal-header">
+                    <h3>协作成员管理</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="collaborator-section">
+                        <div class="collaborator-add">
+                            <input type="text" id="collaborator-name" placeholder="输入用户名或邮箱" style="flex: 1;">
+                            <select id="collaborator-role" style="width: 120px;">
+                                <option value="editor">编辑者</option>
+                                <option value="viewer">查看者</option>
+                            </select>
+                            <button class="btn btn-primary" id="add-collaborator">添加</button>
+                        </div>
+                        <div class="collaborator-list" id="collaborator-list">
+                            <div class="empty-hint" style="text-align: center; padding: 40px 0; color: var(--text-muted);">暂无协作成员</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn" onclick="app.closeCollaboratorsModal()">关闭</button>
                 </div>
             </div>
         </div>

@@ -9,6 +9,9 @@ const viewer = {
     currentPage: 1,
     totalPages: 1,
     passwordVerified: false,
+    timer: null,
+    remainingSeconds: 0,
+    timerStarted: false,
     
     init() {
         this.token = document.getElementById('view-app').dataset.token;
@@ -82,14 +85,80 @@ const viewer = {
         `;
     },
     
+    startTimer() {
+        if (this.timerStarted || !this.survey.time_limit) return;
+        
+        this.timerStarted = true;
+        this.remainingSeconds = this.survey.time_limit * 60;
+        
+        this.request('start_timer', 'POST', {
+            survey_id: this.survey.id,
+            time_limit: this.survey.time_limit
+        });
+        
+        this.timer = setInterval(() => {
+            this.remainingSeconds--;
+            this.updateTimerDisplay();
+            
+            if (this.remainingSeconds <= 0) {
+                this.timeUp();
+            }
+        }, 1000);
+        
+        this.updateTimerDisplay();
+    },
+    
+    updateTimerDisplay() {
+        const minutes = Math.floor(this.remainingSeconds / 60);
+        const seconds = this.remainingSeconds % 60;
+        const timerEl = document.getElementById('timer-display');
+        
+        if (timerEl) {
+            timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            if (this.remainingSeconds <= 60) {
+                timerEl.classList.add('timer-warning');
+            }
+            if (this.remainingSeconds <= 30) {
+                timerEl.classList.add('timer-danger');
+            }
+        }
+    },
+    
+    async timeUp() {
+        clearInterval(this.timer);
+        
+        await this.request('submit_response', 'POST', {
+            survey_id: this.survey.id,
+            answers: this.answers,
+            auto_submit: true
+        });
+        
+        document.getElementById('modal-timeup').classList.add('active');
+    },
+    
     renderSurvey() {
         const container = document.getElementById('survey-content');
+        
+        let timerHtml = '';
+        if (this.survey.time_limit) {
+            timerHtml = `
+                <div class="timer-bar">
+                    <div class="timer-info">
+                        <span class="timer-icon">⏱️</span>
+                        <span class="timer-label">剩余时间：</span>
+                        <span class="timer-value" id="timer-display">${this.survey.time_limit}:00</span>
+                    </div>
+                </div>
+            `;
+        }
         
         let html = `
             <div class="survey-header">
                 <h1>${this.escapeHtml(this.survey.title)}</h1>
                 ${this.survey.description ? `<p>${this.escapeHtml(this.survey.description)}</p>` : ''}
             </div>
+            ${timerHtml}
             <div class="survey-content">
         `;
         
@@ -126,6 +195,10 @@ const viewer = {
         
         container.innerHTML = html;
         this.bindQuestionEvents();
+        
+        if (this.survey.time_limit) {
+            this.startTimer();
+        }
     },
     
     renderQuestion(q, idx) {

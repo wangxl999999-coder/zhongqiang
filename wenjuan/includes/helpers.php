@@ -36,6 +36,37 @@ function validateSurveyAccess($survey) {
         return ['success' => false, 'message' => '问卷已超过截止时间'];
     }
     
+    $ip = $_SERVER['REMOTE_ADDR'];
+    
+    if ($survey['ip_limit_type'] == 1 && $survey['ip_whitelist']) {
+        $whitelist = array_map('trim', explode(',', $survey['ip_whitelist']));
+        if (!in_array($ip, $whitelist)) {
+            $allowed = false;
+            foreach ($whitelist as $range) {
+                if (strpos($range, '/') !== false && ipInRange($ip, $range)) {
+                    $allowed = true;
+                    break;
+                }
+            }
+            if (!$allowed) {
+                return ['success' => false, 'message' => '您的IP不在允许访问范围内'];
+            }
+        }
+    }
+    
+    if ($survey['ip_limit_type'] == 2 && $survey['ip_blacklist']) {
+        $blacklist = array_map('trim', explode(',', $survey['ip_blacklist']));
+        if (in_array($ip, $blacklist)) {
+            return ['success' => false, 'message' => '您的IP被禁止访问此问卷'];
+        } else {
+            foreach ($blacklist as $range) {
+                if (strpos($range, '/') !== false && ipInRange($ip, $range)) {
+                    return ['success' => false, 'message' => '您的IP被禁止访问此问卷'];
+                }
+            }
+        }
+    }
+    
     $db = Database::getInstance();
     $responseCount = $db->fetchOne(
         'SELECT COUNT(*) as count FROM responses WHERE survey_id = ?',
@@ -47,7 +78,6 @@ function validateSurveyAccess($survey) {
     }
     
     if ($survey['limit_once']) {
-        $ip = $_SERVER['REMOTE_ADDR'];
         $existing = $db->fetchOne(
             'SELECT id FROM responses WHERE survey_id = ? AND ip_address = ?',
             [$survey['id'], $ip]
@@ -58,6 +88,19 @@ function validateSurveyAccess($survey) {
     }
     
     return ['success' => true];
+}
+
+function ipInRange($ip, $range) {
+    if (strpos($range, '/') === false) {
+        return $ip === $range;
+    }
+    
+    list($range, $netmask) = explode('/', $range, 2);
+    $ipDecimal = ip2long($ip);
+    $rangeDecimal = ip2long($range);
+    $netmaskDecimal = -1 << (32 - intval($netmask));
+    
+    return ($ipDecimal & $netmaskDecimal) == ($rangeDecimal & $netmaskDecimal);
 }
 
 function handleFileUpload($questionId) {

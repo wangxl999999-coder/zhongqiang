@@ -26,6 +26,9 @@ switch ($action) {
     case 'create_survey':
         createSurvey($db);
         break;
+    case 'create_from_template':
+        createSurveyFromTemplate($db);
+        break;
     case 'update_survey':
         updateSurvey($db);
         break;
@@ -68,6 +71,33 @@ switch ($action) {
     case 'upload_file':
         $result = handleFileUpload($_GET['question_id'] ?? 0);
         jsonResponse($result);
+        break;
+    case 'get_templates':
+        getTemplates($db);
+        break;
+    case 'get_template':
+        getTemplate($db);
+        break;
+    case 'save_as_template':
+        saveAsTemplate($db);
+        break;
+    case 'get_collaborators':
+        getCollaborators($db);
+        break;
+    case 'add_collaborator':
+        addCollaborator($db);
+        break;
+    case 'update_collaborator':
+        updateCollaborator($db);
+        break;
+    case 'remove_collaborator':
+        removeCollaborator($db);
+        break;
+    case 'start_timer':
+        startTimer($db);
+        break;
+    case 'check_timer':
+        checkTimer($db);
         break;
     default:
         jsonResponse(['success' => false, 'message' => '未知操作']);
@@ -148,7 +178,15 @@ function updateSurvey($db) {
         'end_time' => $input['end_time'] ?? null,
         'max_responses' => !empty($input['max_responses']) ? intval($input['max_responses']) : null,
         'limit_once' => !empty($input['limit_once']) ? 1 : 0,
+        'time_limit' => !empty($input['time_limit']) ? intval($input['time_limit']) : null,
+        'ip_limit_type' => intval($input['ip_limit_type'] ?? 0),
+        'ip_whitelist' => sanitizeInput($input['ip_whitelist'] ?? ''),
+        'ip_blacklist' => sanitizeInput($input['ip_blacklist'] ?? ''),
     ];
+    
+    if (isset($input['password']) && $input['password'] === '') {
+        $updateData['password'] = null;
+    }
     
     $db->update('surveys', $updateData, 'id = :id', ['id' => $id]);
     
@@ -635,4 +673,286 @@ function exportCsv($db) {
     
     fclose($fp);
     exit;
+}
+
+function getTemplates($db) {
+    $category = $_GET['category'] ?? '';
+    
+    $sql = 'SELECT * FROM templates WHERE is_public = 1';
+    $params = [];
+    
+    if ($category) {
+        $sql .= ' AND category = ?';
+        $params[] = $category;
+    }
+    
+    $sql .= ' ORDER BY usage_count DESC';
+    $templates = $db->fetchAll($sql, $params);
+    
+    jsonResponse(['success' => true, 'data' => $templates]);
+}
+
+function getTemplate($db) {
+    $id = $_GET['id'] ?? 0;
+    $template = $db->fetchOne('SELECT * FROM templates WHERE id = ?', [$id]);
+    
+    if (!$template) {
+        jsonResponse(['success' => false, 'message' => '模板不存在']);
+    }
+    
+    $template['data'] = json_decode($template['template_data'], true);
+    
+    jsonResponse(['success' => true, 'data' => $template]);
+}
+
+function createSurveyFromTemplate($db) {
+    $input = getInput();
+    $templateId = $input['template_id'] ?? 0;
+    
+    $template = $db->fetchOne('SELECT * FROM templates WHERE id = ?', [$templateId]);
+    
+    if (!$template) {
+        jsonResponse(['success' => false, 'message' => '模板不存在']);
+    }
+    
+    $templateData = json_decode($template['template_data'], true);
+    
+    $surveyData = $templateData['survey'] ?? [];
+    $questions = $templateData['questions'] ?? [];
+    
+    $surveyId = $db->insert('surveys', [
+        'title' => $surveyData['title'] ?? '未命名问卷',
+        'description' => $surveyData['description'] ?? '',
+        'share_token' => generateToken(32)
+    ]);
+    
+    foreach ($questions as $q) {
+        $questionId = $db->insert('questions', [
+            'survey_id' => $surveyId,
+            'page_number' => intval($q['page_number'] ?? 1),
+            'type' => $q['type'],
+            'title' => sanitizeInput($q['title'] ?? ''),
+            'description' => sanitizeInput($q['description'] ?? ''),
+            'sort_order' => intval($q['sort_order'] ?? 0),
+            'required' => !empty($q['required']) ? 1 : 0,
+            'config_json' => !empty($q['config']) ? json_encode($q['config'], JSON_UNESCAPED_UNICODE) : null,
+        ]);
+        
+        if (!empty($q['options']) && is_array($q['options'])) {
+            foreach ($q['options'] as $idx => $opt) {
+                $db->insert('options', [
+                    'question_id' => $questionId,
+                    'label' => sanitizeInput($opt['label'] ?? ''),
+                    'value' => sanitizeInput($opt['value'] ?? ''),
+                    'sort_order' => $idx,
+                ]);
+            }
+        }
+    }
+    
+    $db->update('templates', 
+        ['usage_count' => $template['usage_count'] + 1], 
+        'id = :id', 
+        ['id' => $templateId]
+    );
+    
+    jsonResponse(['success' => true, 'data' => ['id' => $surveyId]]);
+}
+
+function saveAsTemplate($db) {
+    $input = getInput();
+    $surveyId = $input['survey_id'] ?? 0;
+    $title = $input['title'] ?? '';
+    $description = $input['description'] ?? '';
+    $category = $input['category'] ?? 'other';
+    
+    $survey = $db->fetchOne('SELECT * FROM surveys WHERE id = ?', [$surveyId]);
+    if (!$survey) {
+        jsonResponse(['success' => false, 'message' => '问卷不存在']);
+    }
+    
+    $questions = $db->fetchAll(
+        'SELECT * FROM questions WHERE survey_id = ? ORDER BY page_number, sort_order',
+        [$surveyId]
+    );
+    
+    foreach ($questions as &$question) {
+        if (in_array($question['type'], ['radio', 'checkbox', 'select'])) {
+            $question['options'] = $db->fetchAll(
+                'SELECT * FROM options WHERE question_id = ? ORDER BY sort_order',
+                [$question['id']]
+            );
+        }
+        if ($question['config_json']) {
+            $question['config'] = json_decode($question['config_json'], true);
+        }
+        unset($question['id']);
+        unset($question['survey_id']);
+        unset($question['config_json']);
+        if (isset($question['options'])) {
+            foreach ($question['options'] as &$opt) {
+                unset($opt['id']);
+                unset($opt['question_id']);
+            }
+        }
+    }
+    
+    $templateData = json_encode([
+        'survey' => [
+            'title' => $survey['title'],
+            'description' => $survey['description']
+        ],
+        'questions' => $questions
+    ], JSON_UNESCAPED_UNICODE);
+    
+    $templateId = $db->insert('templates', [
+        'title' => sanitizeInput($title),
+        'description' => sanitizeInput($description),
+        'category' => $category,
+        'template_data' => $templateData,
+        'is_public' => 0
+    ]);
+    
+    jsonResponse(['success' => true, 'data' => ['id' => $templateId]]);
+}
+
+function getCollaborators($db) {
+    $surveyId = $_GET['survey_id'] ?? 0;
+    
+    $collaborators = $db->fetchAll(
+        'SELECT c.*, u.username, u.nickname, u.avatar 
+         FROM survey_collaborators c 
+         LEFT JOIN users u ON c.user_id = u.id 
+         WHERE c.survey_id = ?',
+        [$surveyId]
+    );
+    
+    jsonResponse(['success' => true, 'data' => $collaborators]);
+}
+
+function addCollaborator($db) {
+    $input = getInput();
+    $surveyId = $input['survey_id'] ?? 0;
+    $username = $input['username'] ?? '';
+    $role = $input['role'] ?? 'editor';
+    $permissionLevel = $input['permission_level'] ?? 2;
+    
+    $user = $db->fetchOne('SELECT id FROM users WHERE username = ?', [$username]);
+    if (!$user) {
+        $password = generateToken(8);
+        $userId = $db->insert('users', [
+            'username' => sanitizeInput($username),
+            'password' => password_hash($password, PASSWORD_DEFAULT),
+            'nickname' => sanitizeInput($username)
+        ]);
+    } else {
+        $userId = $user['id'];
+    }
+    
+    $existing = $db->fetchOne(
+        'SELECT id FROM survey_collaborators WHERE survey_id = ? AND user_id = ?',
+        [$surveyId, $userId]
+    );
+    
+    if ($existing) {
+        jsonResponse(['success' => false, 'message' => '该用户已是协作成员']);
+    }
+    
+    $db->insert('survey_collaborators', [
+        'survey_id' => $surveyId,
+        'user_id' => $userId,
+        'role' => $role,
+        'permission_level' => $permissionLevel
+    ]);
+    
+    jsonResponse(['success' => true, 'data' => ['user_id' => $userId]]);
+}
+
+function updateCollaborator($db) {
+    $input = getInput();
+    $id = $input['id'] ?? 0;
+    $role = $input['role'] ?? 'editor';
+    $permissionLevel = $input['permission_level'] ?? 2;
+    
+    $db->update('survey_collaborators', [
+        'role' => $role,
+        'permission_level' => $permissionLevel
+    ], 'id = :id', ['id' => $id]);
+    
+    jsonResponse(['success' => true]);
+}
+
+function removeCollaborator($db) {
+    $input = getInput();
+    $id = $input['id'] ?? 0;
+    
+    $db->delete('survey_collaborators', 'id = ?', [$id]);
+    jsonResponse(['success' => true]);
+}
+
+function startTimer($db) {
+    $input = getInput();
+    $surveyId = $input['survey_id'] ?? 0;
+    $token = $input['token'] ?? '';
+    
+    $survey = $db->fetchOne('SELECT * FROM surveys WHERE share_token = ?', [$token]);
+    if (!$survey) {
+        jsonResponse(['success' => false, 'message' => '问卷不存在']);
+    }
+    
+    if (!$survey['time_limit']) {
+        jsonResponse(['success' => true, 'data' => ['time_limit' => null]]);
+        return;
+    }
+    
+    $sessionKey = 'survey_' . $survey['id'] . '_start_time';
+    if (!isset($_SESSION)) {
+        session_start();
+    }
+    
+    $startTime = time();
+    $_SESSION[$sessionKey] = $startTime;
+    
+    jsonResponse([
+        'success' => true,
+        'data' => [
+            'time_limit' => $survey['time_limit'],
+            'start_time' => $startTime,
+            'end_time' => $startTime + $survey['time_limit'] * 60
+        ]
+    ]);
+}
+
+function checkTimer($db) {
+    $input = getInput();
+    $token = $input['token'] ?? '';
+    
+    $survey = $db->fetchOne('SELECT * FROM surveys WHERE share_token = ?', [$token]);
+    if (!$survey) {
+        jsonResponse(['success' => false, 'message' => '问卷不存在']);
+    }
+    
+    if (!$survey['time_limit']) {
+        jsonResponse(['success' => true, 'data' => ['remaining' => null, 'expired' => false]]);
+        return;
+    }
+    
+    if (!isset($_SESSION)) {
+        session_start();
+    }
+    
+    $sessionKey = 'survey_' . $survey['id'] . '_start_time';
+    $startTime = $_SESSION[$sessionKey] ?? time();
+    $endTime = $startTime + $survey['time_limit'] * 60;
+    $remaining = $endTime - time();
+    $expired = $remaining <= 0;
+    
+    jsonResponse([
+        'success' => true,
+        'data' => [
+            'remaining' => max(0, $remaining),
+            'expired' => $expired,
+            'time_limit' => $survey['time_limit']
+        ]
+    ]);
 }
