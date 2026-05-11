@@ -13,6 +13,7 @@ from app.utils import (
     get_gold_expire_date
 )
 from app.config import settings
+from app.dependencies import get_current_user
 from datetime import datetime
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
@@ -105,7 +106,7 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
     )
 
 @router.post("/refresh", response_model=Token)
-def refresh_token(current_user: User = Depends("app.dependencies.get_current_user")):
+def refresh_token(current_user: User = Depends(get_current_user)):
     access_token = create_access_token(
         data={"user_id": current_user.id},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

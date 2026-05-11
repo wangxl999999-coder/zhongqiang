@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 import os
 
 from app.database import Base, engine
@@ -29,20 +30,27 @@ app.include_router(user.router)
 app.include_router(api.router)
 
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-if os.path.exists(frontend_dir):
-    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
-    
-    @app.get("/")
-    async def index():
-        return FileResponse(os.path.join(frontend_dir, "index.html"))
-    
-    @app.get("/{path:path}")
-    async def catch_all(path: str):
-        file_path = os.path.join(frontend_dir, f"{path}.html")
-        if os.path.exists(file_path):
-            return FileResponse(file_path)
-        return FileResponse(os.path.join(frontend_dir, "index.html"))
 
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "message": "服务运行正常"}
+
+@app.get("/")
+async def index():
+    return FileResponse(os.path.join(frontend_dir, "index.html"))
+
+@app.get("/{full_path:path}")
+async def catch_all(full_path: str):
+    if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json") or full_path == "health":
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+    
+    file_path = os.path.join(frontend_dir, full_path)
+    
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    
+    html_path = os.path.join(frontend_dir, f"{full_path}.html")
+    if os.path.exists(html_path) and os.path.isfile(html_path):
+        return FileResponse(html_path)
+    
+    return FileResponse(os.path.join(frontend_dir, "index.html"))

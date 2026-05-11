@@ -73,7 +73,7 @@ async def get_tmall_detail(
         )
 
 @router.get("/test")
-def test_api(
+async def test_api(
     user: User = Depends(get_user_by_api_key),
     db: Session = Depends(get_db)
 ):

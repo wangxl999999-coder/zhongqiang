@@ -13,6 +13,7 @@ required_packages = [
     'python-multipart',
     'pydantic',
     'pydantic-settings',
+    'email-validator',
     'httpx',
     'beautifulsoup4',
     'lxml',
