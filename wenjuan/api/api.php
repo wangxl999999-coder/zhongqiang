@@ -171,21 +171,55 @@ function updateSurvey($db) {
     $input = getInput();
     $id = $input['id'] ?? 0;
     
-    $updateData = [
-        'title' => sanitizeInput($input['title'] ?? '未命名问卷'),
-        'description' => sanitizeInput($input['description'] ?? ''),
-        'password' => !empty($input['password']) ? password_hash($input['password'], PASSWORD_DEFAULT) : null,
-        'end_time' => $input['end_time'] ?? null,
-        'max_responses' => !empty($input['max_responses']) ? intval($input['max_responses']) : null,
-        'limit_once' => !empty($input['limit_once']) ? 1 : 0,
-        'time_limit' => !empty($input['time_limit']) ? intval($input['time_limit']) : null,
-        'ip_limit_type' => intval($input['ip_limit_type'] ?? 0),
-        'ip_whitelist' => sanitizeInput($input['ip_whitelist'] ?? ''),
-        'ip_blacklist' => sanitizeInput($input['ip_blacklist'] ?? ''),
-    ];
+    $updateData = [];
     
-    if (isset($input['password']) && $input['password'] === '') {
-        $updateData['password'] = null;
+    if (isset($input['title'])) {
+        $updateData['title'] = sanitizeInput($input['title']);
+    }
+    
+    if (isset($input['description'])) {
+        $updateData['description'] = sanitizeInput($input['description']);
+    }
+    
+    if (isset($input['password'])) {
+        if ($input['password'] === '') {
+            $updateData['password'] = null;
+        } else {
+            $updateData['password'] = password_hash($input['password'], PASSWORD_DEFAULT);
+        }
+    }
+    
+    if (isset($input['end_time'])) {
+        $updateData['end_time'] = $input['end_time'] ?: null;
+    }
+    
+    if (isset($input['max_responses'])) {
+        $updateData['max_responses'] = !empty($input['max_responses']) ? intval($input['max_responses']) : null;
+    }
+    
+    if (isset($input['limit_once'])) {
+        $updateData['limit_once'] = !empty($input['limit_once']) ? 1 : 0;
+    }
+    
+    if (isset($input['time_limit'])) {
+        $updateData['time_limit'] = !empty($input['time_limit']) ? intval($input['time_limit']) : null;
+    }
+    
+    if (isset($input['ip_limit_type'])) {
+        $updateData['ip_limit_type'] = intval($input['ip_limit_type']);
+    }
+    
+    if (isset($input['ip_whitelist'])) {
+        $updateData['ip_whitelist'] = sanitizeInput($input['ip_whitelist']);
+    }
+    
+    if (isset($input['ip_blacklist'])) {
+        $updateData['ip_blacklist'] = sanitizeInput($input['ip_blacklist']);
+    }
+    
+    if (empty($updateData)) {
+        jsonResponse(['success' => true]);
+        return;
     }
     
     $db->update('surveys', $updateData, 'id = :id', ['id' => $id]);
@@ -318,6 +352,10 @@ function getPublicSurvey($db) {
             'description' => $survey['description'],
             'cover_image' => $survey['cover_image'],
             'has_password' => !empty($survey['password']),
+            'time_limit' => $survey['time_limit'],
+            'limit_once' => $survey['limit_once'],
+            'end_time' => $survey['end_time'],
+            'max_responses' => $survey['max_responses'],
         ],
         'questions' => $questions,
         'conditions' => $conditions
