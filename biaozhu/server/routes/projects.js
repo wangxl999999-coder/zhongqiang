@@ -39,16 +39,18 @@ router.get('/', auth, async (req, res) => {
 
 router.post('/', auth, requireRole('admin'), async (req, res) => {
   try {
-    const { name, dataType, tutorial } = req.body;
+    const { name, dataType, tutorial, status } = req.body;
     const project = await Project.create({
       name,
       dataType,
       tutorial,
+      status: status || 'draft',
       createdBy: req.user.id
     });
     res.status(201).json(project);
   } catch (error) {
-    res.status(500).json({ error: '创建项目失败' });
+    console.error('创建项目错误:', error);
+    res.status(500).json({ error: '创建项目失败', details: error.message });
   }
 });
 
