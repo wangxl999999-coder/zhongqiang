@@ -14,6 +14,8 @@ require_once __DIR__ . '/../includes/helpers.php';
 $db = Database::getInstance();
 $config = require __DIR__ . '/../config/config.php';
 
+ensurePasswordResetCodesTable($db);
+
 $action = $_GET['action'] ?? '';
 
 function getCurrentUser($db) {
@@ -92,6 +94,53 @@ function getUserSafeData($user) {
         $user['avatar_url'] = null;
     }
     return $user;
+}
+
+function ensurePasswordResetCodesTable($db) {
+    static $checked = false;
+    
+    if ($checked) {
+        return;
+    }
+    
+    $checked = true;
+    
+    $pdo = $db->getConnection();
+    
+    try {
+        $stmt = $pdo->query("SHOW TABLES LIKE 'password_reset_codes'");
+        if (!$stmt->fetch()) {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS password_reset_codes (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT DEFAULT 0 COMMENT '用户ID（注册时为0）',
+                    phone VARCHAR(20) NOT NULL COMMENT '手机号',
+                    code VARCHAR(6) NOT NULL COMMENT '验证码',
+                    type VARCHAR(20) NOT NULL DEFAULT 'reset' COMMENT '类型：register注册 reset找回密码',
+                    expires_at INT NOT NULL COMMENT '过期时间（Unix时间戳）',
+                    used TINYINT DEFAULT 0 COMMENT '是否已使用',
+                    created_at INT NOT NULL COMMENT '创建时间（Unix时间戳）',
+                    INDEX idx_phone (phone),
+                    INDEX idx_code (code),
+                    INDEX idx_type (type),
+                    INDEX idx_expires_at (expires_at),
+                    INDEX idx_phone_type (phone, type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短信验证码表'
+            ");
+        } else {
+            $stmt = $pdo->query("SHOW COLUMNS FROM password_reset_codes");
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+            $columns = array_map('strtolower', $columns);
+            
+            if (!in_array('type', $columns)) {
+                $pdo->exec("ALTER TABLE password_reset_codes ADD COLUMN type VARCHAR(20) NOT NULL DEFAULT 'reset' COMMENT '类型：register注册 reset找回密码'");
+                $pdo->exec("ALTER TABLE password_reset_codes ADD INDEX idx_type (type)");
+                $pdo->exec("ALTER TABLE password_reset_codes ADD INDEX idx_phone_type (phone, type)");
+            }
+        }
+    } catch (Exception $e) {
+        error_log('Error ensuring password_reset_codes table: ' . $e->getMessage());
+    }
 }
 
 switch ($action) {
