@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+</head>
+<body style="background: #f0f2f5;">
+    <div class="content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">用户管理</h3>
+                <div>
+                    <a href="{:url('user/batchGenerate')}" class="btn btn-warning"><i class="fas fa-plus-circle"></i> 批量生成账号</a>
+                    <a href="{:url('user/add')}?type={$type}" class="btn btn-success"><i class="fas fa-plus"></i> 添加用户</a>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <div class="tab-item {if $type == 'student'}active{/if}" onclick="location.href='{:url('user/index')}?type=student'">学生</div>
+                <div class="tab-item {if $type == 'teacher'}active{/if}" onclick="location.href='{:url('user/index')}?type=teacher'">教师</div>
+                <div class="tab-item {if $type == 'admin'}active{/if}" onclick="location.href='{:url('user/index')}?type=admin'">管理员</div>
+            </div>
+
+            <div class="search-form">
+                <div class="search-item">
+                    <label>关键词：</label>
+                    <input type="text" id="keyword" class="form-input" style="width: 200px;" value="{$keyword}" placeholder="用户名/姓名">
+                </div>
+                <button type="button" class="btn btn-primary" onclick="doSearch()"><i class="fas fa-search"></i> 搜索</button>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>姓名</th>
+                        <th>手机号</th>
+                        <th>邮箱</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {volist name="list" id="vo"}
+                    <tr>
+                        <td>{$vo.id}</td>
+                        <td>{$vo.username}</td>
+                        <td>{$vo.name}</td>
+                        <td>{$vo.mobile}</td>
+                        <td>{$vo.email}</td>
+                        <td>
+                            {if $vo.status == 1}
+                            <span class="badge badge-success">正常</span>
+                            {else/}
+                            <span class="badge badge-danger">禁用</span>
+                            {/if}
+                        </td>
+                        <td>{$vo.create_time|date='Y-m-d H:i'}</td>
+                        <td>
+                            <a href="{:url('user/edit')}?id={$vo.id}&type={$type}" class="btn btn-primary" style="padding: 4px 8px; font-size: 12px;">编辑</a>
+                            <a href="javascript:void(0)" onclick="doDelete({$vo.id})" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">删除</a>
+                        </td>
+                    </tr>
+                    {/volist}
+                    {if empty($list)}
+                    <tr>
+                        <td colspan="8" style="text-align: center;">暂无数据</td>
+                    </tr>
+                    {/if}
+                </tbody>
+            </table>
+
+            <div class="pagination">
+                {$list|raw}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/layer@3.5.1/dist/layer.js"></script>
+    <script>
+        function doSearch() {
+            var keyword = $('#keyword').val();
+            location.href = "{:url('user/index')}?type={$type}&keyword=" + encodeURIComponent(keyword);
+        }
+
+        function doDelete(id) {
+            layer.confirm('确定要删除该用户吗？', function(index) {
+                $.post("{:url('user/delete')}", {id: id, type: '{$type}'}, function(res) {
+                    if (res.code == 1) {
+                        layer.msg(res.msg, {icon: 1});
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        layer.msg(res.msg, {icon: 2});
+                    }
+                }, 'json');
+                layer.close(index);
+            });
+        }
+    </script>
+</body>
+</html>

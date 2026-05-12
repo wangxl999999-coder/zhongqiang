@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线考试系统 - 管理后台</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="layout">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-graduation-cap"></i> 考试系统
+            </div>
+            <div class="sidebar-menu">
+                <a href="{:url('index/welcome')}" class="menu-item" target="mainFrame">
+                    <i class="fas fa-home"></i> 控制台
+                </a>
+                <a href="{:url('user/index')}" class="menu-item" target="mainFrame">
+                    <i class="fas fa-users"></i> 用户管理
+                </a>
+                <a href="{:url('role/index')}" class="menu-item" target="mainFrame">
+                    <i class="fas fa-user-tag"></i> 角色管理
+                </a>
+                <a href="{:url('grade/index')}" class="menu-item" target="mainFrame">
+                    <i class="fas fa-layer-group"></i> 年级班级
+                </a>
+                <a href="{:url('subject/index')}" class="menu-item" target="mainFrame">
+                    <i class="fas fa-book"></i> 学科管理
+                </a>
+                <a href="{:url('question/index')}" class="menu-item" target="mainFrame">
+                    <i class="fas fa-question-circle"></i> 题库管理
+                </a>
+                <a href="{:url('paper/index')}" class="menu-item" target="mainFrame">
+                    <i class="fas fa-file-alt"></i> 试卷管理
+                </a>
+                <a href="{:url('exam/index')}" class="menu-item" target="mainFrame">
+                    <i class="fas fa-calendar-check"></i> 考试安排
+                </a>
+            </div>
+        </div>
+        <div class="main">
+            <div class="header">
+                <div class="header-title">管理后台</div>
+                <div class="header-right">
+                    <span><i class="fas fa-user"></i> {$admin_nickname}</span>
+                    <a href="{:url('login/logout')}"><i class="fas fa-sign-out-alt"></i> 退出</a>
+                </div>
+            </div>
+            <iframe name="mainFrame" src="{:url('index/welcome')}" frameborder="0" style="width: 100%; height: calc(100vh - 64px);"></iframe>
+        </div>
+    </div>
+</body>
+</html>

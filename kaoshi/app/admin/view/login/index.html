@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线考试系统 - 登录</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="login-container">
+        <h1 class="login-title">在线考试系统</h1>
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label">用户名</label>
+                <input type="text" name="username" class="form-input" placeholder="请输入用户名" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">密码</label>
+                <input type="password" name="password" class="form-input" placeholder="请输入密码" required>
+            </div>
+            <button type="submit" class="btn btn-primary">登 录</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/layer@3.5.1/dist/layer.js"></script>
+    <script>
+        $(function() {
+            $('#loginForm').submit(function(e) {
+                e.preventDefault();
+                var formData = $(this).serialize();
+                $.post("{:url('login/login')}", formData, function(res) {
+                    if (res.code == 1) {
+                        layer.msg(res.msg, {icon: 1});
+                        setTimeout(function() {
+                            location.href = res.data.url;
+                        }, 1000);
+                    } else {
+                        layer.msg(res.msg, {icon: 2});
+                    }
+                }, 'json');
+            });
+        });
+    </script>
+</body>
+</html>

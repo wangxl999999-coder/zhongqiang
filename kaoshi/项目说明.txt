@@ -1,0 +1,94 @@
+==============================================
+在线考试系统 - 项目文件清单
+==============================================
+
+一、项目结构已创建完成
+
+二、核心文件列表
+
+1. 配置文件
+├── composer.json          - Composer配置
+├── .env                   - 环境配置
+├── .gitignore             - Git忽略配置
+├── config/app.php         - 应用配置
+└── config/database.php    - 数据库配置
+
+2. 数据库文件
+└── database/install.sql   - 数据库安装脚本（含所有表结构）
+
+3. 入口文件
+└── public/index.php       - 应用入口
+
+4. 静态资源
+└── public/static/css/style.css  - 样式文件
+
+5. 核心模型 (app/common/model/)
+├── Admin.php              - 管理员模型
+├── Role.php               - 角色模型
+├── Student.php            - 学生模型
+├── Teacher.php            - 教师模型
+├── Grade.php              - 年级模型
+├── Classes.php            - 班级模型
+├── Subject.php            - 学科模型
+├── Chapter.php            - 章节模型
+├── Knowledge.php          - 知识点模型
+├── Question.php           - 试题模型
+├── Paper.php              - 试卷模型
+├── PaperQuestion.php      - 试卷试题关联
+├── PaperRule.php          - 随机试卷规则
+├── Exam.php               - 考试模型
+└── ExamUser.php           - 考试参考人员
+
+6. 管理员端控制器 (app/admin/controller/)
+├── Login.php              - 登录控制器
+├── Index.php              - 首页控制器
+├── User.php               - 用户管理控制器
+├── Question.php           - 题库管理控制器
+├── Paper.php              - 试卷管理控制器
+├── Exam.php               - 考试安排控制器
+└── Grade.php              - 年级班级控制器
+
+7. 视图模板 (app/admin/view/)
+├── login/index.html       - 登录页面
+├── index/index.html       - 主框架页面
+├── index/welcome.html     - 欢迎页面
+└── user/index.html        - 用户管理列表
+
+三、已实现的核心功能
+
+1. 管理员端
+   ✓ 登录/登出
+   ✓ 学生/教师/管理员用户管理
+   ✓ 批量生成账号
+   ✓ 年级、班级管理
+
+2. 题库管理
+   ✓ 7种题型支持（单选、多选、判断、填空、简答、主观题、图文题）
+   ✓ 按学科、章节、知识点、难度分类
+   ✓ 试题查重功能
+   ✓ 试题审核功能
+
+3. 试卷管理
+   ✓ 手动组卷（自主选题）
+   ✓ 随机组卷（按知识点、难度抽题）
+   ✓ 试卷预览
+   ✓ 试卷复制
+   ✓ 固定试卷/随机试卷
+
+4. 考试安排
+   ✓ 创建考试（名称、时间、时长、满分、及格分）
+   ✓ 设置参考人员（班级、年级、指定人员）
+   ✓ 考试规则（允许重考、交卷限制）
+   ✓ 发布考试、开始考试、延期考试
+
+四、安装说明
+
+1. 配置PHP环境（PHP >= 7.1）
+2. 配置MySQL数据库
+3. 执行 composer install 安装依赖
+4. 导入 database/install.sql 到数据库
+5. 配置 config/database.php 数据库连接
+6. 设置Web服务器根目录指向 public/
+7. 访问系统，默认账号：admin / admin
+
+==============================================
