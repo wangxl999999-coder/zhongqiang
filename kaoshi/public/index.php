@@ -1,9 +1,10 @@
 <?php
-namespace think;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-$app = new App();
+$app = new think\App();
+
+$app->initialize();
 
 $http = $app->http;
 

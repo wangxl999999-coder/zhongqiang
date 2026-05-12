@@ -7,7 +7,7 @@ return [
             'hostname' => '127.0.0.1',
             'database' => 'kaoshi',
             'username' => 'root',
-            'password' => '',
+            'password' => '123123',
             'hostport' => '3306',
             'charset' => 'utf8mb4',
             'prefix' => 'ks_',
