@@ -9,7 +9,7 @@ if (!isset($_GET['id'])) {
 }
 
 $bug_id = intval($_GET['id']);
-$current_user = get_current_user();
+$current_user = get_logged_in_user();
 
 $stmt = $db->prepare("SELECT b.*, 
                              c.real_name as creator_name, 
