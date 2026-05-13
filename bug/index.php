@@ -76,10 +76,23 @@ include 'includes/header.php';
 ?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-list-ul me-2"></i>BUG列表</h2>
-    <a href="bug_create.php" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-1"></i>上报BUG
-    </a>
+    <div>
+        <a href="javascript:void(0)" class="btn btn-outline-success me-2" onclick="exportCSV()">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>导出CSV
+        </a>
+        <a href="bug_create.php" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>上报BUG
+        </a>
+    </div>
 </div>
+
+<script>
+function exportCSV() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('type', 'csv');
+    window.location.href = 'export.php?' + params.toString();
+}
+</script>
 
 <div class="card mb-4">
     <div class="card-body">

@@ -47,6 +47,11 @@
                         <i class="bi bi-plus-circle me-1"></i>上报BUG
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/statistics.php">
+                        <i class="bi bi-bar-chart me-1"></i>统计看板
+                    </a>
+                </li>
                 <?php if ($_SESSION['user_role'] == 'admin'): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="/users.php">
