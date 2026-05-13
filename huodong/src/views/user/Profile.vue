@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-gray-50 pb-20">
+  <div class="min-h-screen bg-gray-50 pb-6 lg:pb-0">
     <div class="bg-white">
       <div class="bg-gradient-to-r from-primary-400 to-primary-600 pt-8 pb-16 px-4">
-        <div class="max-w-md mx-auto flex items-center justify-between">
+        <div class="max-w-3xl mx-auto flex items-center justify-between">
           <div>
             <h1 class="text-xl font-bold text-white">个人中心</h1>
             <p class="text-white/80 text-sm mt-1">管理你的账号和活动</p>
@@ -16,13 +16,21 @@
         </div>
       </div>
 
-      <div class="max-w-md mx-auto px-4 -mt-10">
+      <div class="max-w-3xl mx-auto px-4 -mt-10">
         <div class="card">
           <div class="flex items-center gap-4 mb-4">
-            <div class="w-16 h-16 bg-gray-200 rounded-full"></div>
+            <div v-if="userStore.userInfo.avatar" class="w-16 h-16 rounded-full overflow-hidden">
+              <img :src="userStore.userInfo.avatar" alt="avatar" class="w-full h-full object-cover" />
+            </div>
+            <div v-else class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
+              <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+              </svg>
+            </div>
             <div class="flex-1">
-              <h2 class="text-lg font-bold text-gray-800">{{ userNickname }}</h2>
-              <p class="text-gray-500 text-sm">{{ userBio || '这个人很懒，什么都没写' }}</p>
+              <h2 class="text-lg font-bold text-gray-800">{{ userStore.userInfo.nickname || userNickname }}</h2>
+              <p class="text-gray-500 text-sm">{{ userStore.userInfo.bio || '这个人很懒，什么都没写' }}</p>
             </div>
           </div>
 
@@ -44,7 +52,7 @@
       </div>
     </div>
 
-    <div class="max-w-md mx-auto mt-4">
+    <div class="max-w-3xl mx-auto mt-4">
       <div class="flex border-b border-gray-100 bg-white">
         <button
           v-for="tab in tabs"
@@ -103,26 +111,26 @@
       </div>
     </div>
 
-    <div class="max-w-md mx-auto px-4 mt-4">
+    <div class="max-w-3xl mx-auto px-4 mt-4">
       <button @click="handleLogout" class="w-full py-3 bg-white text-red-500 font-medium rounded-xl">
         退出登录
       </button>
     </div>
-
-    <TabBar />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import TabBar from '@/components/TabBar.vue'
 import { mockActivities } from '@/utils/mockData'
+import { useUserStore } from '@/stores/user'
+import { useDataStore } from '@/stores/data'
 
 const router = useRouter()
+const userStore = useUserStore()
+const dataStore = useDataStore()
 
 const userNickname = ref(localStorage.getItem('userNickname') || '用户')
-const userBio = ref('热爱生活，喜欢参加各种活动')
 
 const tabs = [
   { id: 'activities', name: '活动' },
@@ -132,7 +140,9 @@ const tabs = [
 
 const activeTab = ref('activities')
 
-const myActivities = ref(mockActivities.slice(0, 2))
+const myActivities = computed(() => {
+  return [...dataStore.userActivities, ...mockActivities.slice(0, 2)]
+})
 const favoriteActivities = ref(mockActivities.slice(2, 4))
 
 const handleLogout = () => {
@@ -141,6 +151,7 @@ const handleLogout = () => {
     localStorage.removeItem('userPhone')
     localStorage.removeItem('userNickname')
     localStorage.removeItem('userTags')
+    userStore.logout()
     router.push('/login')
   }
 }

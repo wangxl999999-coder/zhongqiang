@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-screen bg-gray-50 pb-20">
-    <div class="bg-white sticky top-0 z-40">
-      <div class="max-w-md mx-auto p-4 flex items-center justify-between">
+  <div class="min-h-screen bg-gray-50 pb-6 lg:pb-0">
+    <div class="bg-white sticky top-0 z-40 lg:top-16">
+      <div class="max-w-3xl mx-auto p-4 flex items-center justify-between">
         <div class="flex items-center">
           <button @click="$router.back()" class="p-2 -ml-2 mr-2">
             <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -13,17 +13,10 @@
       </div>
     </div>
 
-    <div class="max-w-md mx-auto p-4 space-y-4">
+    <div class="max-w-3xl mx-auto p-4 space-y-4">
       <div class="card">
         <label class="block text-sm font-medium text-gray-700 mb-3">活动封面</label>
-        <div class="w-full h-40 bg-gray-100 rounded-xl flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors">
-          <div class="text-center">
-            <svg class="w-10 h-10 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
-            </svg>
-            <p class="text-gray-500 text-sm">点击上传封面</p>
-          </div>
-        </div>
+        <ImageUpload v-model="form.cover" placeholder="点击上传封面" size="large" />
       </div>
 
       <div class="card">
@@ -114,8 +107,6 @@
         发布活动
       </button>
     </div>
-
-    <TabBar />
   </div>
 </template>
 
@@ -123,9 +114,12 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import TabBar from '@/components/TabBar.vue'
-import { interestTags, mockCircles } from '@/utils/mockData'
+import ImageUpload from '@/components/ImageUpload.vue'
+import { interestTags } from '@/utils/mockData'
+import { useDataStore } from '@/stores/data'
 
 const router = useRouter()
+const dataStore = useDataStore()
 
 const form = ref({
   title: '',
@@ -135,7 +129,8 @@ const form = ref({
   fee: 0,
   circleId: null,
   tags: [],
-  description: ''
+  description: '',
+  cover: ''
 })
 
 const toggleTag = (tagId) => {
@@ -164,7 +159,18 @@ const handlePublish = () => {
     alert('请输入活动详情')
     return
   }
-  alert('活动发布成功！等待审核通过后即可展示')
+  
+  const tagNames = form.value.tags.map(id => {
+    const tag = interestTags.find(t => t.id === id)
+    return tag ? tag.name : ''
+  }).filter(Boolean)
+
+  dataStore.addActivity({
+    ...form.value,
+    tags: tagNames
+  })
+
+  alert('活动发布成功！')
   router.push('/home')
 }
 </script>

@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-screen bg-gray-50 pb-20">
-    <div class="bg-white sticky top-0 z-40">
-      <div class="max-w-md mx-auto p-4">
+  <div class="min-h-screen bg-gray-50 pb-6 lg:pb-0">
+    <div class="bg-white sticky top-0 z-40 lg:top-16">
+      <div class="max-w-3xl mx-auto p-4">
         <div class="flex items-center justify-between mb-4">
           <h1 class="text-xl font-bold text-gray-800">兴趣圈子</h1>
           <router-link to="/create-circle" class="btn-primary text-sm px-4 py-2">
@@ -35,7 +35,7 @@
       </div>
     </div>
 
-    <div class="max-w-md mx-auto p-4 space-y-4">
+    <div class="max-w-3xl mx-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div 
         v-for="circle in filteredCircles"
         :key="circle.id"
@@ -66,14 +66,14 @@
       </div>
     </div>
 
-    <TabBar />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import TabBar from '@/components/TabBar.vue'
-import { mockCircles } from '@/utils/mockData'
+import { useDataStore } from '@/stores/data'
+
+const dataStore = useDataStore()
 
 const tabs = [
   { id: 0, name: '推荐' },
@@ -88,7 +88,7 @@ const activeTab = ref(0)
 const searchQuery = ref('')
 
 const filteredCircles = computed(() => {
-  let result = [...mockCircles]
+  let result = [...dataStore.allCircles]
   if (searchQuery.value) {
     result = result.filter(c => c.name.includes(searchQuery.value) || c.intro.includes(searchQuery.value))
   }

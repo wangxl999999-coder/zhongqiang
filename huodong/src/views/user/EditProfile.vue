@@ -17,12 +17,7 @@
     <div class="max-w-md mx-auto p-4 space-y-4">
       <div class="card text-center">
         <label class="block text-sm font-medium text-gray-700 mb-3">头像</label>
-        <div class="w-24 h-24 bg-gray-200 rounded-full mx-auto flex items-center justify-center cursor-pointer hover:bg-gray-300 transition-colors">
-          <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
-            <path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
-          </svg>
-        </div>
+        <ImageUpload v-model="form.avatar" placeholder="点击上传" is-circle size="normal" />
         <p class="text-gray-500 text-sm mt-2">点击更换头像</p>
       </div>
 
@@ -126,8 +121,11 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import ImageUpload from '@/components/ImageUpload.vue'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const genders = [
   { label: '男', value: 'male' },
@@ -136,12 +134,13 @@ const genders = [
 ]
 
 const form = ref({
-  nickname: localStorage.getItem('userNickname') || '',
-  gender: 'secret',
-  age: '',
-  signature: '',
-  city: '',
-  bio: ''
+  nickname: userStore.userInfo.nickname || localStorage.getItem('userNickname') || '',
+  gender: userStore.userInfo.gender || 'secret',
+  age: userStore.userInfo.age || '',
+  signature: userStore.userInfo.signature || '',
+  city: userStore.userInfo.city || '',
+  bio: userStore.userInfo.bio || '',
+  avatar: userStore.userInfo.avatar || ''
 })
 
 const handleSave = () => {
@@ -150,6 +149,7 @@ const handleSave = () => {
     return
   }
   localStorage.setItem('userNickname', form.value.nickname)
+  userStore.setUserInfo(form.value)
   alert('资料保存成功！')
   router.back()
 }

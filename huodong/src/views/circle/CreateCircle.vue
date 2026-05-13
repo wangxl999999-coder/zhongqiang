@@ -15,11 +15,7 @@
       <div class="card">
         <label class="block text-sm font-medium text-gray-700 mb-3">圈子头像</label>
         <div class="flex items-center gap-4">
-          <div class="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors">
-            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
-            </svg>
-          </div>
+          <ImageUpload v-model="form.avatar" placeholder="点击上传" size="small" />
           <p class="text-gray-500 text-sm">点击上传头像（建议尺寸 200x200）</p>
         </div>
       </div>
@@ -70,14 +66,18 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import ImageUpload from '@/components/ImageUpload.vue'
 import { interestTags } from '@/utils/mockData'
+import { useDataStore } from '@/stores/data'
 
 const router = useRouter()
+const dataStore = useDataStore()
 
 const form = ref({
   name: '',
   intro: '',
-  tags: []
+  tags: [],
+  avatar: ''
 })
 
 const toggleTag = (tagId) => {
@@ -102,6 +102,17 @@ const handleCreate = () => {
     alert('请至少选择一个标签')
     return
   }
+
+  const tagNames = form.value.tags.map(id => {
+    const tag = interestTags.find(t => t.id === id)
+    return tag ? tag.name : ''
+  }).filter(Boolean)
+
+  dataStore.addCircle({
+    ...form.value,
+    tags: tagNames
+  })
+
   alert('圈子创建成功！')
   router.back()
 }
