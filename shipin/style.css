@@ -278,12 +278,14 @@ body {
     background: #000;
 }
 
-.video-player-container iframe {
+.video-player-container iframe,
+.video-player-container video {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
+    object-fit: cover;
 }
 
 .video-info p {
@@ -362,4 +364,26 @@ body {
     font-size: 50px;
     display: block;
     margin-bottom: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.video-source-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    font-size: 11px;
+    margin-top: 10px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.play-hint {
+    text-align: center;
+    padding: 10px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
 }
