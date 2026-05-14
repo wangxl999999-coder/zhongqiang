@@ -1,4 +1,4 @@
-const db = require('../database/db');
+const { getDb } = require('../database/db');
 const { crawlZhihuHot } = require('../crawlers/zhihu');
 const { crawlBilibiliHot } = require('../crawlers/bilibili');
 const { crawlDouyinHot } = require('../crawlers/douyin');
@@ -13,6 +13,9 @@ const crawlers = {
 };
 
 async function crawlPlatform(platformName) {
+  const db = getDb();
+  if (!db) throw new Error('数据库未初始化');
+
   return new Promise((resolve, reject) => {
     db.get('SELECT id FROM platforms WHERE name = ?', [platformName], async (err, platform) => {
       if (err || !platform) {
@@ -29,34 +32,33 @@ async function crawlPlatform(platformName) {
 
         const items = await crawler();
         
-        db.run('BEGIN TRANSACTION');
-        
-        for (const item of items) {
-          db.run(`
-            INSERT INTO hot_items (platform_id, title, description, url, hot_value, rank, category, image_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            platform.id,
-            item.title,
-            item.description,
-            item.url,
-            item.hot_value,
-            item.rank,
-            item.category,
-            item.image_url
-          ]);
-        }
-        
-        db.run('COMMIT', (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            console.log(`${platformName} 热榜爬取完成，共 ${items.length} 条`);
-            resolve(items);
-          }
+        const insertPromises = items.map(item => {
+          return new Promise((res, rej) => {
+            db.run(`
+              INSERT INTO hot_items (platform_id, title, description, url, hot_value, rank, category, image_url)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              platform.id,
+              item.title,
+              item.description,
+              item.url,
+              item.hot_value,
+              item.rank,
+              item.category,
+              item.image_url
+            ], (err) => {
+              if (err) rej(err);
+              else res();
+            });
+          });
         });
+
+        await Promise.all(insertPromises);
+        console.log(`${platformName} 热榜爬取完成，共 ${items.length} 条`);
+        resolve(items);
       } catch (error) {
-        reject(error);
+        console.error(`爬取 ${platformName} 失败:`, error.message);
+        resolve([]);
       }
     });
   });
@@ -75,11 +77,19 @@ async function crawlAllPlatforms() {
     }
   }
   
-  await updateEventRelations();
+  try {
+    await updateEventRelations();
+  } catch (error) {
+    console.error('事件聚合失败:', error.message);
+  }
+  
   console.log('所有平台爬取完成');
 }
 
 async function cleanupOldData() {
+  const db = getDb();
+  if (!db) throw new Error('数据库未初始化');
+
   return new Promise((resolve, reject) => {
     db.run(`
       DELETE FROM hot_items WHERE crawled_at < datetime('now', '-7 days')

@@ -1,4 +1,4 @@
-const db = require('../database/db');
+const { getDb } = require('../database/db');
 
 function calculateSimilarity(str1, str2) {
   const set1 = new Set(str1.split(''));
@@ -15,6 +15,9 @@ function extractKeywords(title) {
 }
 
 async function aggregateEvents() {
+  const db = getDb();
+  if (!db) throw new Error('数据库未初始化');
+
   return new Promise((resolve, reject) => {
     db.all(`
       SELECT hi.*, p.name as platform_name
@@ -81,40 +84,54 @@ async function aggregateEvents() {
 }
 
 async function updateEventRelations() {
+  const db = getDb();
+  if (!db) throw new Error('数据库未初始化');
+
   const events = await aggregateEvents();
   
   return new Promise((resolve, reject) => {
     db.serialize(() => {
       db.run('BEGIN TRANSACTION');
       
-      events.forEach((event, index) => {
-        db.run(`
-          INSERT OR REPLACE INTO events (id, title, description, platform_count, updated_at)
-          VALUES ((SELECT id FROM events WHERE title = ? LIMIT 1), ?, ?, ?, CURRENT_TIMESTAMP)
-        `, [event.title, event.title, event.description, event.platform_count], function(err) {
-          if (err) {
-            console.error('插入事件失败:', err);
-            return;
-          }
-          
-          const eventId = this.lastID || 0;
-          
-          event.items.forEach(item => {
-            db.run(`
-              UPDATE hot_items SET event_id = ? WHERE id = ?
-            `, [eventId, item.id]);
+      const updatePromises = events.map(event => {
+        return new Promise((res) => {
+          db.run(`
+            INSERT OR REPLACE INTO events (id, title, description, platform_count, updated_at)
+            VALUES ((SELECT id FROM events WHERE title = ? LIMIT 1), ?, ?, ?, CURRENT_TIMESTAMP)
+          `, [event.title, event.title, event.description, event.platform_count], function(err) {
+            if (err) {
+              console.error('插入事件失败:', err);
+              res();
+              return;
+            }
+            
+            const eventId = this.lastID || 0;
+            
+            const itemPromises = event.items.map(item => {
+              return new Promise((itemRes) => {
+                db.run(`
+                  UPDATE hot_items SET event_id = ? WHERE id = ?
+                `, [eventId, item.id], itemRes);
+              });
+            });
+            
+            Promise.all(itemPromises).then(res);
           });
         });
       });
       
-      db.run('COMMIT', (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          console.log(`事件聚合完成，共聚合 ${events.length} 个事件`);
-          resolve();
-        }
-      });
+      Promise.all(updatePromises)
+        .then(() => {
+          db.run('COMMIT', (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              console.log(`事件聚合完成，共聚合 ${events.length} 个事件`);
+              resolve();
+            }
+          });
+        })
+        .catch(reject);
     });
   });
 }

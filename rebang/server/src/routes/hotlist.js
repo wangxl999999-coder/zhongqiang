@@ -1,10 +1,15 @@
 const express = require('express');
-const db = require('../database/db');
+const { getDb } = require('../database/db');
 const { authenticate } = require('./auth');
 
 const router = express.Router();
 
 router.get('/', (req, res) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(500).json({ error: '数据库未初始化' });
+  }
+
   const { 
     platform, 
     category, 
@@ -53,10 +58,11 @@ router.get('/', (req, res) => {
 
   db.all(query, params, (err, items) => {
     if (err) {
+      console.error('查询热榜失败:', err);
       return res.status(500).json({ error: '获取热榜失败' });
     }
 
-    db.get(`
+    const countQuery = `
       SELECT COUNT(*) as total
       FROM hot_items hi
       JOIN platforms p ON hi.platform_id = p.id
@@ -65,14 +71,17 @@ router.get('/', (req, res) => {
       ${category && category !== '全部' ? ' AND hi.category = ?' : ''}
       ${search ? ' AND hi.title LIKE ?' : ''}
       AND hi.crawled_at >= datetime(\'now\', \'-24 hours\')
-    `, params.slice(0, params.length - 2), (err, result) => {
+    `;
+
+    db.get(countQuery, params.slice(0, params.length - 2), (err, result) => {
       if (err) {
+        console.error('获取总数失败:', err);
         return res.status(500).json({ error: '获取总数失败' });
       }
 
       res.json({
         items,
-        total: result.total,
+        total: result?.total || 0,
         page: parseInt(page),
         limit: parseInt(limit)
       });
@@ -81,6 +90,11 @@ router.get('/', (req, res) => {
 });
 
 router.get('/platforms', (req, res) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(500).json({ error: '数据库未初始化' });
+  }
+
   db.all('SELECT * FROM platforms WHERE enabled = 1', [], (err, platforms) => {
     if (err) {
       return res.status(500).json({ error: '获取平台列表失败' });
@@ -105,6 +119,11 @@ router.get('/categories', (req, res) => {
 });
 
 router.get('/favorites', authenticate, (req, res) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(500).json({ error: '数据库未初始化' });
+  }
+
   const { page = 1, limit = 50 } = req.query;
   const offset = (page - 1) * limit;
 
@@ -133,7 +152,7 @@ router.get('/favorites', authenticate, (req, res) => {
 
       res.json({
         items,
-        total: result.total,
+        total: result?.total || 0,
         page: parseInt(page),
         limit: parseInt(limit)
       });
@@ -142,6 +161,11 @@ router.get('/favorites', authenticate, (req, res) => {
 });
 
 router.post('/favorites/:id', authenticate, (req, res) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(500).json({ error: '数据库未初始化' });
+  }
+
   const hotItemId = req.params.id;
 
   db.run(`
@@ -157,6 +181,11 @@ router.post('/favorites/:id', authenticate, (req, res) => {
 });
 
 router.delete('/favorites/:id', authenticate, (req, res) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(500).json({ error: '数据库未初始化' });
+  }
+
   const hotItemId = req.params.id;
 
   db.run(`
@@ -172,6 +201,11 @@ router.delete('/favorites/:id', authenticate, (req, res) => {
 });
 
 router.get('/blocked-keywords', authenticate, (req, res) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(500).json({ error: '数据库未初始化' });
+  }
+
   db.all(`
     SELECT * FROM blocked_keywords
     WHERE user_id = ?
@@ -186,6 +220,11 @@ router.get('/blocked-keywords', authenticate, (req, res) => {
 });
 
 router.post('/blocked-keywords', authenticate, (req, res) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(500).json({ error: '数据库未初始化' });
+  }
+
   const { keyword } = req.body;
 
   if (!keyword || keyword.trim().length === 0) {
@@ -205,6 +244,11 @@ router.post('/blocked-keywords', authenticate, (req, res) => {
 });
 
 router.delete('/blocked-keywords/:id', authenticate, (req, res) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(500).json({ error: '数据库未初始化' });
+  }
+
   const keywordId = req.params.id;
 
   db.run(`
@@ -220,6 +264,11 @@ router.delete('/blocked-keywords/:id', authenticate, (req, res) => {
 });
 
 router.get('/user/profile', authenticate, (req, res) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(500).json({ error: '数据库未初始化' });
+  }
+
   db.get('SELECT * FROM users WHERE id = ?', [req.userId], (err, user) => {
     if (err) {
       return res.status(500).json({ error: '获取用户信息失败' });
