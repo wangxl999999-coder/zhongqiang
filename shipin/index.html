@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频播放器 - 热门视频在线观看</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>🎬 视频播放器</h1>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="搜索你喜欢的视频...">
+                    <button id="searchBtn">搜索</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <div class="category-filter">
+                <button class="category-btn active" data-category="all">全部</button>
+                <button class="category-btn" data-category="movie">电影</button>
+                <button class="category-btn" data-category="tv">电视剧</button>
+                <button class="category-btn" data-category="anime">动漫</button>
+                <button class="category-btn" data-category="variety">综艺</button>
+                <button class="category-btn" data-category="documentary">纪录片</button>
+            </div>
+
+            <section class="video-section">
+                <h2 class="section-title">🔥 热门视频</h2>
+                <div class="video-grid" id="videoGrid">
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div class="video-modal" id="videoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">视频标题</h3>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="video-player-container">
+                    <iframe id="videoPlayer" frameborder="0" allowfullscreen></iframe>
+                </div>
+                <div class="video-info">
+                    <p><strong>分类：</strong><span id="modalCategory"></span></p>
+                    <p><strong>时间：</strong><span id="modalTime"></span></p>
+                    <p><strong>简介：</strong><span id="modalDesc"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
